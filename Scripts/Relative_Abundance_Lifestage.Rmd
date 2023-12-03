@@ -1,0 +1,282 @@
+---
+title: "Relative_Abundance_Lifestage"
+author: "HM Putnam"
+date: "2023-12-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+#Install and load packages
+```{r}
+library("ggplot2")
+library("ggpubr")
+library("tidyverse")
+
+```
+
+
+#Load Data and QC
+```{r}
+data <- read.csv("Data/POC_RA_lifestage.csv")
+
+#Sanity checks of data
+unique(data$Stage)
+unique(data$Site)
+unique(data$Transect)
+
+#remove NA
+data <- data %>%
+  filter(Stage!="NA")
+
+#make a site transect group
+data$group <- paste0(data$Site, " ", data$Transect)
+
+```
+
+#Calculate relative abundance of adult and recruit
+```{r}
+
+Rel.Abund <- data %>%
+  group_by(Site, Transect, group, Stage) %>%
+  tally() %>% 
+  mutate(freq = prop.table(n)) %>% 
+  mutate(tot = sum(n))
+
+sample.sizes <- Rel.Abund %>%
+ filter(row_number() %% 2 == 1)
+
+Rel.Abund$Site <- factor(Rel.Abund$Site, levels=c("S1", "S2", "S3", "S4", "S5", "S11", "S15"))
+Rel.Abund$Site
+
+#"S4"  "S3"  "S5"  "S1"  "S15" "S2"  "S11"
+
+```
+# identify sample sizes for each site
+```{r}
+
+S1.sample.sizes <- sample.sizes %>%
+  filter(Site=="S1")
+
+S2.sample.sizes <- sample.sizes %>%
+  filter(Site=="S2")
+
+S3.sample.sizes <- sample.sizes %>%
+  filter(Site=="S3")
+
+S4.sample.sizes <- sample.sizes %>%
+  filter(Site=="S4")
+
+S5.sample.sizes <- sample.sizes %>%
+  filter(Site=="S5")
+
+S11.sample.sizes <- sample.sizes %>%
+  filter(Site=="S11")
+
+S15.sample.sizes <- sample.sizes %>%
+  filter(Site=="S15")
+
+```
+
+
+#Plot by Transect by Site
+```{r}
+
+S1.plot <- Rel.Abund %>%
+  filter(Site=="S1") %>%
+ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
+  geom_col() +
+  scale_fill_manual(values = c("black", "grey"))+
+    geom_text( data = S1.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
+  labs(
+    x = NULL,
+    y = "Relative Abundance",
+    fill = "Stage") +
+  theme_classic() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=20))+
+  theme(axis.text.y = element_text(size=20))+
+  theme(axis.title.y = element_text(size=28))+
+  theme(axis.line=element_line()) 
+
+S2.plot <- Rel.Abund %>%
+  filter(Site=="S2") %>%
+ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
+  geom_col() +
+  scale_fill_manual(values = c("black", "grey"))+
+    geom_text( data = S2.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
+  labs(
+    x = NULL,
+    y = "Relative Abundance",
+    fill = "Stage") +
+  theme_classic() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=20))+
+  theme(axis.text.y = element_text(size=20))+
+  theme(axis.title.y = element_text(size=28))+
+  theme(axis.line=element_line()) 
+
+S3.plot <- Rel.Abund %>%
+  filter(Site=="S3") %>%
+ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
+  geom_col() +
+  scale_fill_manual(values = c("black", "grey"))+
+    geom_text( data = S3.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
+  labs(
+    x = NULL,
+    y = "Relative Abundance",
+    fill = "Stage") +
+  theme_classic() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=20))+
+  theme(axis.text.y = element_text(size=20))+
+  theme(axis.title.y = element_text(size=28))+
+  theme(axis.line=element_line()) 
+
+S4.plot <- Rel.Abund %>%
+  filter(Site=="S4") %>%
+ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
+  geom_col() +
+  scale_fill_manual(values = c("black", "grey"))+
+    geom_text( data = S4.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
+  labs(
+    x = NULL,
+    y = "Relative Abundance",
+    fill = "Stage") +
+  theme_classic() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=20))+
+  theme(axis.text.y = element_text(size=20))+
+  theme(axis.title.y = element_text(size=28))+
+  theme(axis.line=element_line()) 
+
+S5.plot <- Rel.Abund %>%
+  filter(Site=="S5") %>%
+ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
+  geom_col() +
+  scale_fill_manual(values = c("black", "grey"))+
+    geom_text( data = S5.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
+  labs(
+    x = NULL,
+    y = "Relative Abundance",
+    fill = "Stage") +
+  theme_classic() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=20))+
+  theme(axis.text.y = element_text(size=20))+
+  theme(axis.title.y = element_text(size=28))+
+  theme(axis.line=element_line()) 
+
+S11.plot.data <- Rel.Abund %>%
+  filter(Site=="S11") 
+  
+extra.11 <-  data.frame (Site  = c("S11","S11","S11","S11","S11","S11","S11","S11"),
+                  Transect = c("T3", "T3","T4", "T4","T5", "T5","T6", "T6"),
+                  group = c("S11 T3","S11 T3","S11 T4","S11 T4","S11 T5","S11 T5","S11 T6","S11 T6"), 
+                  Stage = c("Adult", "Recruit","Adult", "Recruit","Adult", "Recruit","Adult", "Recruit"),
+                  n= c(0,0,0,0,0,0,0,0),
+                  freq = c(0,0,0,0,0,0,0,0),
+                  tot = c(0,0,0,0,0,0,0,0))
+
+S11.plot.data <- rbind(S11.plot.data, extra.11)
+
+S11.plot <- S11.plot.data %>%
+ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
+  geom_col() +
+  scale_fill_manual(values = c("black", "grey"))+
+  scale_x_discrete(drop = FALSE) +
+    geom_text( data = S11.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
+  labs(
+    x = NULL,
+    y = "Relative Abundance",
+    fill = "Stage") +
+  theme_classic() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=20))+
+  theme(axis.text.y = element_text(size=20))+
+  theme(axis.title.y = element_text(size=28))+
+  theme(axis.line=element_line()) 
+
+S15.plot.data <- Rel.Abund %>%
+  filter(Site=="S15") 
+  
+extra.15 <-  data.frame (Site  = c("S15","S15","S15","S15"),
+                  Transect = c("T5", "T5","T6", "T6"),
+                  group = c("S15 T5","S15 T5","S15 T6","S15 T6"), 
+                  Stage = c("Adult", "Recruit","Adult", "Recruit"),
+                  n= c(0,0,0,0),
+                  freq = c(0,0,0,0),
+                  tot = c(0,0,0,0))
+
+S15.plot.data <- rbind(S15.plot.data, extra.11)
+  
+  
+S15.plot <- S15.plot.data %>%
+ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
+  geom_col() +
+  scale_fill_manual(values = c("black", "grey"))+
+  scale_x_discrete(drop = FALSE) +
+    geom_text( data = S15.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
+  labs(
+    x = NULL,
+    y = "Relative Abundance",
+    fill = "Stage") +
+  theme_classic() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=20))+
+  theme(axis.text.y = element_text(size=20))+
+  theme(axis.title.y = element_text(size=28))+
+  theme(axis.line=element_line()) 
+
+ggsave("Output/S1_RA.jpg", S1.plot, height=4, width=5)
+ggsave("Output/S2_RA.jpg", S2.plot, height=4, width=5)
+ggsave("Output/S3_RA.jpg", S3.plot, height=4, width=5)
+ggsave("Output/S4_RA.jpg", S4.plot, height=4, width=5)
+ggsave("Output/S5_RA.jpg", S5.plot, height=4, width=5)
+ggsave("Output/S11_RA.jpg", S11.plot, height=4, width=5)
+ggsave("Output/S15_RA.jpg", S15.plot, height=4, width=5)
+
+```
+
+#calculate the density of all Pocillopora per site
+```{r}
+
+#50m x 0.5m is the area of a transect
+Rel.Abund.Site <- data %>%
+  group_by(Site, Stage) %>%
+  tally() %>% 
+  mutate(freq = prop.table(n)) %>% 
+  mutate(tot = sum(n))
+
+Rel.Abund.Site$Site <- factor(Rel.Abund.Site$Site, levels=c("S1", "S2", "S3", "S4", "S5", "S11", "S15"))
+Rel.Abund.Site$Site
+
+site.sample.sizes <- Rel.Abund.Site %>%
+ filter(row_number() %% 2 == 1)
+
+#calculate the number of transects to get density per site
+density <- data %>%
+  group_by(Site, Transect) %>%
+  tally() 
+
+site.density <- density %>%
+  group_by(Site) %>%
+  summarise(total=sum(n), 
+            transect.number = length(unique(Transect))) %>%
+  mutate(density = total/(transect.number*25))
+
+scale_factor <- max(site.density$density) /max(Rel.Abund.Site$freq) 
+
+
+Site.plot <- Rel.Abund.Site %>%
+ggplot(., aes(x = Site, y = freq)) +
+  geom_col(aes(x = Site, y = freq, fill=Stage)) +
+  scale_fill_manual(values = c("black", "grey"))+
+  geom_point(data =site.density, aes(x=Site, y=density/scale_factor), color = "red", size=3) +
+  #scale_y_continuous("Relative Abundance", sec.axis = dup_axis(name = "Density (corals/m2)")) +
+  scale_y_continuous("Relative Abundance", sec.axis=sec_axis(~.*scale_factor, name="Density (corals/m2)")) +
+  theme_classic() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=18),
+        axis.text.y = element_text(size=18),
+        axis.title.y = element_text(size=24),
+        axis.title.x = element_blank(),
+        axis.line=element_line()) 
+
+ggsave("Output/Site_RA.jpg", Site.plot, height=4, width=5)
+```
+
