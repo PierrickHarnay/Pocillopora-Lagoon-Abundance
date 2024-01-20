@@ -1,0 +1,28 @@
+---
+title: "Size recruit classification"
+author: "Pierrick"
+date: '2024-01-20'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+load the data 
+```{r}
+data<- read.csv("Data/POC_ID_RA_list.csv", sep=";", header = TRUE, na.strings = "NA")
+colnames(data)
+class(data)
+str(data)
+
+
+
+
+
+range(data$Recruit_size_cm2)
+```
+
+```{r}
+
+```
