@@ -16,13 +16,36 @@ colnames(data)
 class(data)
 str(data)
 
-
-
-
-
 range(data$Recruit_size_cm2)
+range(na.omit(data$Recruit_size_cm2))
+
+#calculate the diameter assuming the shape is a circle
+data$Recruit_diameter_cm <- 2*(sqrt(pi/data$Recruit_size_cm2))
 ```
 
+Size Class definitions
 ```{r}
+#Class 1 0 - 1cm in diameter = 0- 0.7854 cm2
+#Class 2 >1 - 4cm in diameter = >0.7854- 0.7854 cm2
+#Class 1 0 - 1cm in diameter = 0- 0.7854 cm2
+#Class 1 0 - 1cm in diameter = 0- 0.7854 cm2
+
+#set the size class diameter
+c1 <- 1
+c2 <- 4
+c3 <- 6
+c4 <- 10
+
+#Class 1 0 - 1cm in diameter = 0- 0.7854 cm2
+c1A <- pi*(c1/2)^2
+
+#Class 1 0 - 1cm in diameter = 0- 0.7854 cm2
+c2A <- pi*(c2/2)^2
+
+#Class 1 0 - 1cm in diameter = 0- 0.7854 cm2
+c3A <- pi*(c3/2)^2
+
+#Class 1 0 - 1cm in diameter = 0- 0.7854 cm2
+c4A <- pi*(c4/2)^2
 
 ```
