@@ -120,7 +120,7 @@ Date_french_format;Number;Stage;Site;Transect;ID;Replicate;Data;Backup;Quantity_
 06/10/2022;513;Adult;S4;T5;POC_ID;2;1;1;0,5;0,5;Site_S4_2;Site_S4_2_backup;_20__C;_40_up;YES;YES;513_S4_T5;NA;;;;;;;0;0;0;0;0;0;0;0;
 06/10/2022;530;Recruit;S4;T5;POC_ID;2;1;1;0,5;0,5;Site_S4_2;Site_S4_2_backup;_20__C;_40_up;NO;YES;530_S4_T5;0.697;;;;;;;1;0;0;0;0;0;0;0;
 06/10/2022;531;Recruit;S4;T5;POC_ID;2;1;1;0,5;0,5;Site_S4_2;Site_S4_2_backup;_20__C;_40_up;YES;YES;531_S4_T5;2.197;;;;;;;1;0;0;0;0;0;0;0;
-06/10/2022;532;Recruit;S4;T5;POC_ID;1;1;0;0,5;NA;Site_S4_2;NA;_20__C;NA;NO;YES;532_S4_T5;0;;;;;;;0;0;0;0;0;0;0;0;
+06/10/2022;532;Recruit;S4;T5;POC_ID;1;1;0;0,5;NA;Site_S4_2;NA;_20__C;NA;NO;YES;532_S4_T5;NA;;;;;;;0;0;0;0;0;0;0;0;picture blurry
 06/10/2022;553;Recruit;S4;T5;POC_ID;2;1;1;0,5;0,5;Site_S4_2;Site_S4_2_backup;_20__C;_40_up;YES;YES;553_S4_T5;1.162;;;;;;;1;0;0;0;0;0;0;0;
 06/10/2022;555;Recruit;S4;T5;POC_ID;2;1;1;0,5;0,5;Site_S4_2;Site_S4_2_backup;_20__C;_40_up;YES;YES;555_S4_T5;2.089;;;;;;;0;0;0;1;0;0;0;0;
 06/10/2022;585;Adult;S4;T5;POC_ID;2;1;1;0,5;0,5;Site_S4_2;Site_S4_2_backup;_20__C;_40_up;YES;YES;585_S4_T5;NA;;;;;;;0;0;0;0;0;0;0;0;
@@ -162,7 +162,7 @@ Date_french_format;Number;Stage;Site;Transect;ID;Replicate;Data;Backup;Quantity_
 06/10/2022;534;Adult;S4;T6;POC_ID;2;1;1;0,5;0,5;Site_S4_3;Site_S4_3_backup;_20__C;_40_up;YES;YES;534_S4_T6;NA;;;;;;;0;0;0;0;0;0;0;0;
 06/10/2022;535;Adult;S4;T6;POC_ID;2;1;1;0,5;0,5;Site_S4_3;Site_S4_3_backup;_20__C;_40_up;YES;YES;535_S4_T6;NA;;;;;;;0;0;0;0;0;0;0;0;
 06/10/2022;536;Adult;S4;T6;POC_ID;2;1;1;0,5;0,5;Site_S4_2;Site_S4_2_backup;_20__C;_40_up;YES;YES;536_S4_T6;NA;;;;;;;0;0;0;0;0;0;0;0;
-06/10/2022;537;Recruit;S4;T6;POC_ID;2;1;1;0,5;0,5;Site_S4_3;Site_S4_3_backup;_20__C;_40_up;YES;YES;537_S4_T6;0;;;;;;;0;0;0;0;0;0;0;0;
+06/10/2022;537;Recruit;S4;T6;POC_ID;2;1;1;0,5;0,5;Site_S4_3;Site_S4_3_backup;_20__C;_40_up;YES;YES;537_S4_T6;NA;;;;;;;0;0;0;0;0;0;0;0;picture blurry
 06/10/2022;538;Recruit;S4;T6;POC_ID;2;1;1;0,5;0,5;Site_S4_3;Site_S4_3_backup;_20__C;_40_up;YES;YES;538_S4_T6;7.197;;;;;;;0;0;0;1;0;0;0;0;
 06/10/2022;540;Adult;S4;T6;POC_ID;2;1;1;0,5;0,5;Site_S4_3;Site_S4_3_backup;_20__C;_40_up;YES;YES;540_S4_T6;NA;;;;;;;0;0;0;0;0;0;0;0;
 06/10/2022;541;Adult;S4;T6;POC_ID;2;1;1;0,5;0,5;Site_S4_3;Site_S4_3_backup;_20__C;_40_up;YES;YES;541_S4_T6;NA;;;;;;;0;0;0;0;0;0;0;0;
@@ -1156,7 +1156,7 @@ Date_french_format;Number;Stage;Site;Transect;ID;Replicate;Data;Backup;Quantity_
 21/03/2023;1630;Adult;S2;T1;POC_ID;2;1;1;0,5;0,5;Site_2;Site_2_backup;_20__C;_40_up;YES;YES;1630_S2_T1;NA;;;;;;;0;0;0;0;0;0;0;0;
 21/03/2023;1631;Adult;S2;T1;POC_ID;2;1;1;0,5;0,5;Site_2;Site_2_backup;_20__C;_40_up;YES;YES;1631_S2_T1;NA;;;;;;;0;0;0;0;0;0;0;0;
 21/03/2023;1632;Recruit;S2;T1;POC_ID;2;1;1;0,5;0,5;Site_2_2;Site_2_2_backup;_20__C;_40_up;YES;YES;1632_S2_T1;3.236;;;;;;;1;0;0;0;0;0;0;0;
-21/03/2023;1633;Recruit;S2;T1;POC_ID;2;1;1;0,5;0,5;Site_2;Site_2_backup;_20__C;_40_up;YES;YES;1633_S2_T1;0;;;;;;;0;0;0;0;0;0;0;0;
+21/03/2023;1633;Recruit;S2;T1;POC_ID;2;1;1;0,5;0,5;Site_2;Site_2_backup;_20__C;_40_up;YES;YES;1633_S2_T1;NA;;;;;;;0;0;0;0;0;0;0;0;Picture blurry
 21/03/2023;1634;Recruit;S2;T1;POC_ID;2;1;1;0,5;0,5;Site_2_2;Site_2_2_backup;_20__C;_40_up;YES;YES;1634_S2_T1;0.067;;;;;;;0;0;1;0;0;0;0;0;
 21/03/2023;1635;Adult;S2;T1;POC_ID;2;1;1;0,5;0,5;Site_2;Site_2_backup;_20__C;_40_up;YES;YES;1635_S2_T1;NA;;;;;;;0;0;0;0;0;0;0;0;
 21/03/2023;1636;Recruit;S2;T1;POC_ID;2;1;1;0,5;0,5;Site_2;Site_2_backup;_20__C;_40_up;YES;YES;1636_S2_T1;1.158;;;;;;;0;1;0;0;0;0;0;0;
@@ -1338,7 +1338,7 @@ Date_french_format;Number;Stage;Site;Transect;ID;Replicate;Data;Backup;Quantity_
 27/03/2023;1807;Recruit;S2;T3;POC_ID;2;1;1;0,5;0,5;Site_2_4;Site_2_4_backup;_20__C;_40_up;YES;YES;1807_S2_T3;0.458;;;;;;;1;0;0;0;0;0;0;0;
 27/03/2023;1808;Adult;S2;T3;POC_ID;2;1;1;0,5;0,5;Site_2_3;Site_2_3_backup;_20__C;_40_up;YES;YES;1808_S2_T3;NA;;;;;;;0;0;0;0;0;0;0;0;
 27/03/2023;1809;Recruit;S2;T3;POC_ID;2;1;1;0,5;0,5;Site_2_4;Site_2_4_backup;_20__C;_40_up;YES;YES;1809_S2_T3;5.282;;;;;;;1;0;0;0;0;0;0;0;
-27/03/2023;1810;Recruit;S2;T3;POC_ID;2;1;1;0,5;0,5;Site_2_4;Site_2_4_backup;_20__C;_40_up;YES;YES;1810_S2_T3;0;;;;;;;0;0;0;0;0;0;0;0;
+27/03/2023;1810;Recruit;S2;T3;POC_ID;2;1;1;0,5;0,5;Site_2_4;Site_2_4_backup;_20__C;_40_up;YES;YES;1810_S2_T3;NA;;;;;;;0;0;0;0;0;0;0;0;Picture blurry
 27/03/2023;1811;Recruit;S2;T3;POC_ID;2;1;1;0,5;0,5;Site_2_4;Site_2_4_backup;_20__C;_40_up;YES;YES;1811_S2_T3;3.981;;;;;;;1;0;0;0;0;0;0;0;
 27/03/2023;1812;Recruit;S2;T3;POC_ID;2;1;1;0,5;0,5;Site_2_3;Site_2_3_backup;_20__C;_40_up;YES;YES;1812_S2_T3;1.131;;;;;;;1;0;0;0;0;0;0;0;
 27/03/2023;1813;Adult;S2;T3;POC_ID;2;1;1;0,5;0,5;Site_2_4;Site_2_4_backup;_20__C;_40_up;YES;YES;1813_S2_T3;NA;;;;;;;0;0;0;0;0;0;0;0;
