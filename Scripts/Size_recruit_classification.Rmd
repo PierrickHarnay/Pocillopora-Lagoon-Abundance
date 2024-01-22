@@ -9,18 +9,103 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+load data for size recruit scale
+```{r}
+data_scale<- read.csv("/Users/pierrickharnay/Dropbox/MyProjects/Pocillopora-Lagoon-Abundance/Data/Size_recruit_scale_data.csv", sep=";", header = TRUE, na.strings = "NA")
+colnames(data_scale)
+class(data_scale)
+str(data_scale)
+
+range(data_scale$cm_measure)
+range(na.omit(data_scale$cm_measure))
+
+########### Calculate a confidence interval for cm ###################
+##### Step 1: Calculate the mean #####
+data("data_scale")
+sample.mean <- mean(data_scale$cm_measure)
+print(sample.mean)
+1] 0.99998
+
+##### Step 2: Calculate the standard error of the mean #####  
+sample.n <- length(data_scale$cm_measure)
+sample.sd <- sd(data_scale$cm_measure)
+sample.se <- sample.sd/sqrt(sample.n)
+print(sample.se)
+[1] 0.001238
+
+#####  Step 3: Find the t-score that corresponds to the confidence level #####
+alpha = 0.05
+degrees.freedom = sample.n - 1
+t.score = qt(p=alpha/2, df=degrees.freedom,lower.tail=F)
+print(t.score)
+
+#####  Step 4. Calculate the margin of error and construct the confidence interval #####  
+margin.error <- t.score * sample.se
+  lower.bound <- sample.mean - margin.error
+  upper.bound <- sample.mean + margin.error
+  print(c(lower.bound,upper.bound))
+[1] 0.9974921 1.0024679 
+  
+##### linear regression ##### 
+##### Mean and standard error #####  
+l.model <- lm(cm_measure ~ 1, data_scale)
+
+#####  Calculate the confidence interval #####  
+confint(l.model, level=0.95)
+
+  2.5 %   97.5 %
+(Intercept) 0.9974921 1.002468
+  
+########### Calculate a confidence interval for mm ###################
+##### Step 1: Calculate the mean #####
+data("data_scale")
+sample.mean <- mean(data_scale$mm_measure)
+print(sample.mean)
+[1] 0.10906
+
+##### Step 2: Calculate the standard error of the mean #####  
+sample.n <- length(data_scale$mm_measure)
+sample.sd <- sd(data_scale$mm_measure)
+sample.se <- sample.sd/sqrt(sample.n)
+print(sample.se)
+1] 0.001166684
+
+#####  Step 3: Find the t-score that corresponds to the confidence level #####
+alpha = 0.05
+degrees.freedom = sample.n - 1
+t.score = qt(p=alpha/2, df=degrees.freedom,lower.tail=F)
+print(t.score)
+
+#####  Step 4. Calculate the margin of error and construct the confidence interval #####  
+margin.error <- t.score * sample.se
+  lower.bound <- sample.mean - margin.error
+  upper.bound <- sample.mean + margin.error
+  print(c(lower.bound,upper.bound))
+[1] 0.1067155 0.1114045
+
+##### linear regression ##### 
+##### Mean and standard error #####  
+l.model <- lm(mm_measure ~ 1, data_scale)
+
+#####  Calculate the confidence interval #####  
+confint(l.model, level=0.95)
+2.5 %    97.5 %
+(Intercept) 0.1067155 0.1114045  
+
+
+```
 load the data 
 ```{r}
-data<- read.csv("Data/POC_ID_RA_list.csv", sep=";", header = TRUE, na.strings = "NA")
-colnames(data)
-class(data)
-str(data)
+data_size<- read.csv("/Users/pierrickharnay/Dropbox/MyProjects/Pocillopora-Lagoon-Abundance/Data/POC_ID_RA_list.csv", sep=";", header = TRUE, na.strings = "NA")
+colnames(data_size)
+class(data_size)
+str(data_size)
 
-range(data$Recruit_size_cm2)
-range(na.omit(data$Recruit_size_cm2))
+range(data_size$Recruit_size_cm2)
+range(na.omit(data_size$Recruit_size_cm2))
 
 #calculate the diameter assuming the shape is a circle
-data$Recruit_diameter_cm <- 2*(sqrt(pi/data$Recruit_size_cm2))
+data_size$Recruit_diameter_cm <- 2*(sqrt(pi/data_size$Recruit_size_cm2))
 ```
 
 Size Class definitions
