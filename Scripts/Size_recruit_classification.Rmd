@@ -24,14 +24,14 @@ range(na.omit(data_scale$cm_measure))
 data("data_scale")
 sample.mean <- mean(data_scale$cm_measure)
 print(sample.mean)
-1] 0.99998
+#1] 0.99998
 
 ##### Step 2: Calculate the standard error of the mean #####  
 sample.n <- length(data_scale$cm_measure)
 sample.sd <- sd(data_scale$cm_measure)
 sample.se <- sample.sd/sqrt(sample.n)
 print(sample.se)
-[1] 0.001238
+#[1] 0.001238
 
 #####  Step 3: Find the t-score that corresponds to the confidence level #####
 alpha = 0.05
@@ -44,7 +44,7 @@ margin.error <- t.score * sample.se
   lower.bound <- sample.mean - margin.error
   upper.bound <- sample.mean + margin.error
   print(c(lower.bound,upper.bound))
-[1] 0.9974921 1.0024679 
+#[1] 0.9974921 1.0024679 
   
 ##### linear regression ##### 
 ##### Mean and standard error #####  
@@ -53,22 +53,22 @@ l.model <- lm(cm_measure ~ 1, data_scale)
 #####  Calculate the confidence interval #####  
 confint(l.model, level=0.95)
 
-  2.5 %   97.5 %
-(Intercept) 0.9974921 1.002468
+#  2.5 %   97.5 %
+#(Intercept) 0.9974921 1.002468
   
 ########### Calculate a confidence interval for mm ###################
 ##### Step 1: Calculate the mean #####
 data("data_scale")
 sample.mean <- mean(data_scale$mm_measure)
 print(sample.mean)
-[1] 0.10906
+#[1] 0.10906
 
 ##### Step 2: Calculate the standard error of the mean #####  
 sample.n <- length(data_scale$mm_measure)
 sample.sd <- sd(data_scale$mm_measure)
 sample.se <- sample.sd/sqrt(sample.n)
 print(sample.se)
-1] 0.001166684
+#1] 0.001166684
 
 #####  Step 3: Find the t-score that corresponds to the confidence level #####
 alpha = 0.05
@@ -81,7 +81,7 @@ margin.error <- t.score * sample.se
   lower.bound <- sample.mean - margin.error
   upper.bound <- sample.mean + margin.error
   print(c(lower.bound,upper.bound))
-[1] 0.1067155 0.1114045
+#[1] 0.1067155 0.1114045
 
 ##### linear regression ##### 
 ##### Mean and standard error #####  
@@ -89,8 +89,8 @@ l.model <- lm(mm_measure ~ 1, data_scale)
 
 #####  Calculate the confidence interval #####  
 confint(l.model, level=0.95)
-2.5 %    97.5 %
-(Intercept) 0.1067155 0.1114045  
+#2.5 %    97.5 %
+#(Intercept) 0.1067155 0.1114045  
 
 
 ```
@@ -152,33 +152,58 @@ knitr::opts_chunk$set(echo = FALSE)
 library("ggplot2")
 library("ggpubr")
 library("tidyverse")
+library("viridisLite")
 
 ```
 
 
 #Load Data and QC
 ```{r}
-data_size_cm2 <- read.csv("Data/POC_RA_Size.csv")
+data_size_cm2 <- read.csv("/Users/pierrickharnay/Dropbox/MyProjects/Pocillopora-Lagoon-Abundance/Data/POC_RA_Size.csv", sep=";", header = TRUE, na.strings = "NA")
 
 #Sanity checks of data
-unique(data$Stage)
-unique(data$Site)
-unique(data$Transect)
+unique(data_size_cm2$Recruit_size_cm2)
+unique(data_size_cm2$Site)
+unique(data_size_cm2$Transect)
+unique(data_size_cm2$Number)
 
+#remove 0
+data_size_cm2 <- data_size_cm2 %>%
+  filter(Recruit_size_cm2!="0")
 #remove NA
-data <- data %>%
-  filter(Stage!="NA")
+data_size_cm2 <- data_size_cm2 %>%
+  filter(Recruit_size_cm2!="NA")
 
 #make a site transect group
-data$group <- paste0(data$Site, " ", data$Transect)
+data_size_cm2$group <- paste0(data_size_cm2$Site, " ", data_size_cm2$Transect)
 
 ```
 
-#Calculate relative abundance of adult and recruit
+#make a colum by group of size zith categorie without adults 
 ```{r}
 
-Rel.Abund <- data %>%
-  group_by(Site, Transect, group, Stage) %>%
+if (!requireNamespace("dplyr", quietly = TRUE)) {
+  install.packages("dplyr")
+}
+library(dplyr)
+
+# Load your dataset
+data_size_cm2 <- read.csv("/Users/pierrickharnay/Dropbox/MyProjects/Pocillopora-Lagoon-Abundance/Data/POC_RA_Size.csv", sep=";", header = TRUE, na.strings = "NA")
+
+# Définir les intervalles de taille pour la découpe
+intervals <- c(0, 1, 4, 6, 10)
+
+# Créer une nouvelle colonne 'groupe_taille' en fonction des intervalles
+data_size_cm2$Groups <- cut(data_size_cm2$Recruit_size_cm2, breaks = intervals, labels = c("Recruit", "Juvenille", "teenager", "Young adult"), include.lowest = TRUE)
+
+``` 
+
+
+#Calculate relative abundance of group of size
+```{r}
+
+Rel.Abund <- data_size_cm2 %>%
+  group_by(Site, Transect, Groups, Recruit_size_cm2) %>%
   tally() %>% 
   mutate(freq = prop.table(n)) %>% 
   mutate(tot = sum(n))
@@ -186,12 +211,17 @@ Rel.Abund <- data %>%
 sample.sizes <- Rel.Abund %>%
  filter(row_number() %% 2 == 1)
 
-Rel.Abund$Site <- factor(Rel.Abund$Site, levels=c("S1", "S2", "S3", "S4", "S5", "S11", "S15"))
+Rel.Abund$Site <- factor(Rel.Abund$Site, levels=c("S1", "S2", "S3", "S4", "S5", "S11", "S15", "S9", "S18"))
 Rel.Abund$Site
 
 #"S4"  "S3"  "S5"  "S1"  "S15" "S2"  "S11"
 
+data_size_cm2 <- data_size_cm2 %>%
+  filter(Recruit_size_cm2!="NA")
+data_size_cm2 <- data_size_cm2 %>%
+  filter(Recruit_size_cm2!="0")
 ```
+
 # identify sample sizes for each site
 ```{r}
 
@@ -216,38 +246,44 @@ S11.sample.sizes <- sample.sizes %>%
 S15.sample.sizes <- sample.sizes %>%
   filter(Site=="S15")
 
+S9.sample.sizes <- sample.sizes %>%
+  filter(Site=="S9")
+
+S18.sample.sizes <- sample.sizes %>%
+  filter(Site=="S18")
+
 ```
 
 
 #Plot by Transect by Site
 ```{r}
 
-S1.plot <- Rel.Abund %>%
+S1.plot_size <- Rel.Abund %>%
   filter(Site=="S1") %>%
-ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
+ggplot(., aes(x = Transect, y = freq, fill=Groups)) +
   geom_col() +
-  scale_fill_manual(values = c("black", "grey"))+
+  scale_fill_manual(values = c("black", "grey", "purple", "green", "pink"))+
     geom_text( data = S1.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
   labs(
     x = NULL,
     y = "Relative Abundance",
-    fill = "Stage") +
+    fill = "Groups") +
   theme_classic() + 
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=20))+
-  theme(axis.text.y = element_text(size=20))+
-  theme(axis.title.y = element_text(size=28))+
+  theme_(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1, size=10))+
+  theme(axis.text.y = element_text(size=5))+
+  theme(axis.title.y = element_text(size=5))+
   theme(axis.line=element_line()) 
 
-S2.plot <- Rel.Abund %>%
+S2.plot_size <- Rel.Abund %>%
   filter(Site=="S2") %>%
-ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
+ggplot(., aes(x = Transect, y = freq, fill=Groups)) +
   geom_col() +
-  scale_fill_manual(values = c("black", "grey"))+
+  scale_fill_manual(values = c("black", "grey", "purple", "green", "pink"))+
     geom_text( data = S2.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
   labs(
     x = NULL,
     y = "Relative Abundance",
-    fill = "Stage") +
+    fill = "Groups") +
   theme_classic() + 
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=20))+
   theme(axis.text.y = element_text(size=20))+
@@ -361,8 +397,8 @@ ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
   theme(axis.title.y = element_text(size=28))+
   theme(axis.line=element_line()) 
 
-ggsave("Output/S1_RA.jpg", S1.plot, height=4, width=5)
-ggsave("Output/S2_RA.jpg", S2.plot, height=4, width=5)
+ggsave("/Users/pierrickharnay/Dropbox/MyProjects/Pocillopora-Lagoon-Abundance/Output/S1_RA_size.jpg", S1.plot_size, height=6, width=9)
+ggsave("/Users/pierrickharnay/Dropbox/MyProjects/Pocillopora-Lagoon-Abundance/Output/S2_RA_size.jpg", S2.plot_size, height=4, width=5)
 ggsave("Output/S3_RA.jpg", S3.plot, height=4, width=5)
 ggsave("Output/S4_RA.jpg", S4.plot, height=4, width=5)
 ggsave("Output/S5_RA.jpg", S5.plot, height=4, width=5)
