@@ -7,19 +7,29 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+#Install and load packages
+
+library("ggplot2")
+library("ggpubr")
+library("tidyverse")
+library("viridisLite")
+library("dplyr")
+
 ```
 
 load data for size recruit scale
 ```{r}
-data_scale<- read.csv("/Users/pierrickharnay/Dropbox/MyProjects/Pocillopora-Lagoon-Abundance/Data/Size_recruit_scale_data.csv", sep=";", header = TRUE, na.strings = "NA")
+data_scale<- read.csv("Data/Size_recruit_scale_data.csv", sep=";", header = TRUE, na.strings = "NA")
 colnames(data_scale)
 class(data_scale)
 str(data_scale)
 
 range(data_scale$cm_measure)
 range(na.omit(data_scale$cm_measure))
+```
 
 ########### Calculate a confidence interval for cm ###################
+```{r}
 ##### Step 1: Calculate the mean #####
 data("data_scale")
 sample.mean <- mean(data_scale$cm_measure)
@@ -96,7 +106,7 @@ confint(l.model, level=0.95)
 ```
 load the data 
 ```{r}
-data_size<- read.csv("/Users/pierrickharnay/Dropbox/MyProjects/Pocillopora-Lagoon-Abundance/Data/POC_ID_RA_list.csv", sep=";", header = TRUE, na.strings = "NA")
+data_size<- read.csv("Data/POC_ID_RA_list_size.csv", sep=",", header = TRUE, na.strings = "NA")
 colnames(data_size)
 class(data_size)
 str(data_size)
@@ -105,15 +115,12 @@ range(data_size$Recruit_size_cm2)
 range(na.omit(data_size$Recruit_size_cm2))
 
 #calculate the diameter assuming the shape is a circle
-data_size$Recruit_diameter_cm <- 2*(sqrt(pi/data_size$Recruit_size_cm2))
+data_size$Recruit_diameter_cm <- (2*(sqrt(pi/data_size$Recruit_size_cm2)))/100
 ```
 
 Size Class definitions
 ```{r}
-#Class 1 0 - 1cm in diameter = 0- 0.7854 cm2
-#Class 2 >1 - 4cm in diameter = >0.7854- 2.2567 cm2
-#Class 3 >4 - 6cm in diameter = >2.2567 - 2.7639 cm2
-#Class 4 >6 - 10cm in diameter = >2.7639- 3.5682 cm2
+
 
 #Class 1 0 - 10mm in diameter = 
 #Class 2 >10 - 40mm in diameter = 
@@ -126,40 +133,28 @@ c2 <- 4
 c3 <- 6
 c4 <- 10
 
-#Class 1 0 - 1cm in diameter = 0- 0.7854 cm2
+#Class 1 0 - 1cm in diameter Area 0 - 0.7854 cm2
 c1A <- pi*(c1/2)^2
 
-#Class 2 0 - 1cm in diameter = >0.7854- 2.2567 cm2
+#Class 2 1 - 4cm in diameter Area >0.7854 - 12.56637 cm2
 c2A <- pi*(c2/2)^2
 
-#Class 3 0 - 1cm in diameter = >2.2567 - 2.7639 cm2
+#Class 3 4 - 6cm in diameter Area >12.56637 - 28.27433 cm2
 c3A <- pi*(c3/2)^2
 
-#Class 4 0 - 1cm in diameter = >2.7639- 3.5682 cm2
+#Class 4 6 - 10cm in diameter Area >28.27433 - 78.53982 cm2
 c4A <- pi*(c4/2)^2
 
-```
-
-relative abundance by area cm2 (script took on Relative abundace Lifestage)
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
-```
-
-```{r}
-#Install and load packages
-
-library("ggplot2")
-library("ggpubr")
-library("tidyverse")
-library("viridisLite")
+#Class 4 6 - 10cm in diameter Area >78.54 cm2
+c5A <- pi*(c4/2)^2
 
 ```
-
 
 #Load Data and QC
 ```{r}
-data_size_cm2 <- read.csv("/Users/pierrickharnay/Dropbox/MyProjects/Pocillopora-Lagoon-Abundance/Data/POC_RA_Size.csv", sep=";", header = TRUE, na.strings = "NA")
+#data_size_cm2 <- read.csv("/Users/pierrickharnay/Dropbox/MyProjects/Pocillopora-Lagoon-Abundance/Data/POC_RA_Size.csv", sep=";", header = TRUE, na.strings = "NA")
+
+data_size_cm2 <- data_size[c(1:2056),]
 
 #Sanity checks of data
 unique(data_size_cm2$Recruit_size_cm2)
@@ -167,28 +162,50 @@ unique(data_size_cm2$Site)
 unique(data_size_cm2$Transect)
 unique(data_size_cm2$Number)
 
-#remove 0
+#change NA to indicate NA is adult size or >10cm in diameter
 data_size_cm2 <- data_size_cm2 %>%
-  filter(Recruit_size_cm2!="0")
-#remove NA
-data_size_cm2 <- data_size_cm2 %>%
-  filter(Recruit_size_cm2!="NA")
+  mutate(Recruit_size_cm2 = if_else(is.na(Recruit_size_cm2), 78.54, Recruit_size_cm2))
 
-#make a site transect group
-data_size_cm2$group <- paste0(data_size_cm2$Site, " ", data_size_cm2$Transect)
+#remove 0. 0 indicates the photograph was not able to be analyzed
+data_size_cm2 <- data_size_cm2 %>%
+  filter(Recruit_size_cm2>0)
+```
+
+Assign size classes
+```{r}
+
+#assign size class based on area
+data_size_cm2 <-data_size_cm2 %>% 
+  mutate(Size.Class = case_when(Recruit_size_cm2 < c1A ~ "Class1",
+         Recruit_size_cm2 > c1A & Recruit_size_cm2 < c2A ~ "Class2",
+         Recruit_size_cm2 > c2A & Recruit_size_cm2 < c3A ~ "Class3",
+         Recruit_size_cm2 > c3A & Recruit_size_cm2 < c4A ~ "Class4",
+         Recruit_size_cm2 > c4A ~ "Class5",
+         TRUE ~ "ERROR"))
+
+# Calculate the number and frequency of samples for each class on each transect and site
+x <- data_size_cm2 %>% 
+  group_by(Site, Transect, Size.Class) %>% 
+  summarise(n=n()) 
+
+#plot number of colonies by size class
+class.freq <- x %>% ggplot(aes(Size.Class, n, fill = Size.Class)) +
+  geom_col()+
+  scale_fill_manual(values = c("white","lightgray","gray","darkgray", "black"))+
+  facet_wrap(vars(Site,Transect), ncol = 6)+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle = 90, hjust = 0))+
+  ylab("Number of Colonies in each size class")+
+  xlab("Size Class")
+class.freq 
+
+ggsave("Output/number_per_class.pdf", class.freq, height=10, width =6 )
 
 ```
 
 #make a colum by group of size zith categorie without adults 
 ```{r}
 
-if (!requireNamespace("dplyr", quietly = TRUE)) {
-  install.packages("dplyr")
-}
-library(dplyr)
-
-# Load your dataset
-data_size_cm2 <- read.csv("/Users/pierrickharnay/Dropbox/MyProjects/Pocillopora-Lagoon-Abundance/Data/POC_RA_Size.csv", sep=";", header = TRUE, na.strings = "NA")
 
 # Définir les intervalles de taille pour la découpe
 intervals <- c(0, 1, 4, 6, 10)
