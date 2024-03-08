@@ -2488,7 +2488,6 @@ Date_french_format;Number;Stage;Site;Transect;ID;Replicate;Data;Backup;Quantity_
 27/12/2023;2953;;S18;T2;POC_ID;2;1;1;0.5;0.5;Site_18_Data;Site_18_Backup;Moorea;_40_up;YES;;2953_S18_T2;;;;;;;;;;;;;;;;
 27/12/2023;2954;;S18;T2;POC_ID;2;1;1;0.5;0.5;Site_18_Data;Site_18_Backup;Moorea;_40_up;YES;;2954_S18_T2;;;;;;;;;;;;;;;;
 27/12/2023;2955;;S18;T2;POC_ID;2;1;1;0.5;0.5;Site_18_Data;Site_18_Backup;Moorea;_40_up;YES;;2955_S18_T2;;;;;;;;;;;;;;;;
-27/12/2023;2989;;S18;T2;POC_ID;NA;NA;NA;NA;NA;NA;NA;NA;NA;NA;;2989_S18_T2;;;;;;;;;;;;;;;;
 27/12/2023;2990;;S18;T2;POC_ID;2;1;1;0.5;0.5;Site_18_Data;Site_18_Backup;Moorea;_40_up;YES;;2990_S18_T2;;;;;;;;;;;;;;;;
 23/02/2024;2963;;S6;T1;POC_ID;;;;;;;;;;;;2963_S6_T1;;;;;;;;;;;;;;;;
 23/02/2024;2964;;S6;T1;POC_ID;;;;;;;;;;;;2964_S6_T1;;;;;;;;;;;;;;;;
@@ -2813,7 +2812,6 @@ Date_french_format;Number;Stage;Site;Transect;ID;Replicate;Data;Backup;Quantity_
 29/02/2024;3348;;S9;T3;POC_ID;;;;;;;;;;;;3348_S9_T3;;;;;;;;;;;;;;;;
 29/02/2024;3349;;S9;T3;POC_ID;;;;;;;;;;;;3349_S9_T3;;;;;;;;;;;;;;;;
 29/02/2024;3350;;S9;T3;POC_ID;;;;;;;;;;;;3350_S9_T3;;;;;;;;;;;;;;;;
-28/02/2024;3224;;S18;T3;POC_ID;NA;NA;NA;NA;NA;NA;NA;NA;NA;NA;;3224_S18_T3;;;;;;;;;;;;;;;;
 28/02/2024;3225;;S18;T3;POC_ID;2;1;1;0.5;0.5;Site_18_1_Data;Site_18_1_Backup;Moorea;_40_up;NO;;3225_S18_T3;;;;;;;;;;;;;;;;
 28/02/2024;3226;;S18;T3;POC_ID;2;1;1;0.5;0.5;Site_18_1_Data;Site_18_1_Backup;Moorea;_40_up;YES;;3226_S18_T3;;;;;;;;;;;;;;;;
 28/02/2024;3227;;S18;T3;POC_ID;2;1;1;0.5;0.5;Site_18_1_Data;Site_18_1_Backup;Moorea;_40_up;YES;;3227_S18_T3;;;;;;;;;;;;;;;;
