@@ -1,7 +1,7 @@
 ### Metadata for POC ID RA List ###
 This file have all the data concerning *Pocillopora sp.* relative abundance of the lagoon of Mo'orea.  
 
-####**Legend of the collum:**   
+#### **Legend of the collum:**   
 
 ***Date french format:*** All the date are writting in the europeen way for exemple 10/03/2024 means 10 march 2024 (DD/MM/YYYY). 
    
