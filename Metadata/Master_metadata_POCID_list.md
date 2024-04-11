@@ -31,5 +31,11 @@ SPACE FOR MAP OF THE SITE.
 
 ***Box name Backup:*** Name of the box containing DNA of the Backup sample.   
 
- 
+***Freezer US:*** Localisation of the samples in the freezer.  
+
+***Freezer backup moorea:*** Localisation of the samples in the freezer.   
+
+***Whirlpak:*** Designe if the during the process of adding piece of coral (DNA) we have piece of fragment left for the next step (SEM).  
+
+
    
