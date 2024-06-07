@@ -102,7 +102,7 @@ S1.plot <- Rel.Abund %>%
   filter(Site=="S1") %>%
 ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
   geom_col() +
-  scale_fill_manual(values = c("light grey", "red", "dark gray", "turquoise"))+
+  scale_fill_manual(values = c("light grey", "turquoise"))+
     geom_text( data = S1.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
   labs(
     x = NULL,
@@ -118,7 +118,7 @@ S2.plot <- Rel.Abund %>%
   filter(Site=="S2") %>%
 ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
   geom_col() +
-  scale_fill_manual(values = c("light grey", "red", "dark gray", "turquoise"))+
+  scale_fill_manual(values = c("light grey","turquoise"))+
     geom_text( data = S2.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
   labs(
     x = NULL,
@@ -134,7 +134,7 @@ S3.plot <- Rel.Abund %>%
   filter(Site=="S3") %>%
 ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
   geom_col() +
-  scale_fill_manual(values = c("light grey", "red", "dark gray", "turquoise"))+
+  scale_fill_manual(values = c("light grey", "turquoise"))+
     geom_text( data = S3.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
   labs(
     x = NULL,
@@ -150,7 +150,7 @@ S4.plot <- Rel.Abund %>%
   filter(Site=="S4") %>%
 ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
   geom_col() +
-  scale_fill_manual(values = c("light grey", "red", "dark gray", "turquoise"))+
+  scale_fill_manual(values = c("light grey", "turquoise"))+
     geom_text( data = S4.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
   labs(
     x = NULL,
@@ -166,7 +166,7 @@ S5.plot <- Rel.Abund %>%
   filter(Site=="S5") %>%
 ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
   geom_col() +
-  scale_fill_manual(values = c("light grey", "red", "dark gray", "turquoise"))+
+  scale_fill_manual(values = c("light grey", "turquoise"))+
     geom_text( data = S5.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
   labs(
     x = NULL,
@@ -182,7 +182,7 @@ S6.plot <- Rel.Abund %>%
   filter(Site=="S6") %>%
 ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
   geom_col() +
-  scale_fill_manual(values = c("light grey", "red", "dark gray", "turquoise"))+
+  scale_fill_manual(values = c("light grey", "turquoise"))+
     geom_text( data = S6.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
   labs(
     x = NULL,
@@ -198,7 +198,7 @@ S9.plot <- Rel.Abund %>%
   filter(Site=="S9") %>%
 ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
   geom_col() +
-  scale_fill_manual(values = c("light grey", "red", "dark gray", "turquoise"))+
+  scale_fill_manual(values = c("light grey", "turquoise"))+
     geom_text( data = S9.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
   labs(
     x = NULL,
@@ -214,7 +214,7 @@ S11.plot <- Rel.Abund %>%
   filter(Site=="S11") %>%
 ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
   geom_col() +
-  scale_fill_manual(values = c("light grey", "red", "dark gray", "turquoise"))+
+  scale_fill_manual(values = c("light grey", "turquoise"))+
     geom_text( data = S11.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
   labs(
     x = NULL,
@@ -230,7 +230,7 @@ S12.plot <- Rel.Abund %>%
   filter(Site=="S12") %>%
 ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
   geom_col() +
-  scale_fill_manual(values = c("light grey", "red", "dark gray", "turquoise"))+
+  scale_fill_manual(values = c("light grey","turquoise"))+
     geom_text( data = S12.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
   labs(
     x = NULL,
@@ -246,7 +246,7 @@ S14.plot <- Rel.Abund %>%
   filter(Site=="S14") %>%
 ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
   geom_col() +
-  scale_fill_manual(values = c("66F", "blue", "CCF", "FF9"))+
+  scale_fill_manual(values = c("light grey","turquoise", "dark grey", "red"))+
     geom_text( data = S14.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
   labs(
     x = NULL,
@@ -262,7 +262,7 @@ S15.plot <- Rel.Abund %>%
   filter(Site=="S15") %>%
 ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
   geom_col() +
-  scale_fill_manual(values = c("light grey", "red", "dark gray", "turquoise"))+
+  scale_fill_manual(values = c("light grey", "turquoise"))+
     geom_text( data = S15.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
   labs(
     x = NULL,
@@ -278,7 +278,7 @@ S18.plot <- Rel.Abund %>%
   filter(Site=="S18") %>%
 ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
   geom_col() +
-  scale_fill_manual(values = c("light grey", "red", "dark gray", "turquoise"))+
+  scale_fill_manual(values = c("light grey", "turquoise"))+
     geom_text( data = S18.sample.sizes,aes(x = Transect, y = 1.05, label = tot)) +
   labs(
     x = NULL,
