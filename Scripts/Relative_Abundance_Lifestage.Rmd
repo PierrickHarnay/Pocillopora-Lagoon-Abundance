@@ -114,6 +114,9 @@ ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
   theme(axis.title.y = element_text(size=28))+
   theme(axis.line=element_line()) 
 
+# Split in horizontal direction
+S1.plot_test + facet_grid(rows = vars(Stage))
+
 S2.plot <- Rel.Abund %>%
   filter(Site=="S2") %>%
 ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
@@ -348,6 +351,9 @@ ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
   theme(axis.text.y = element_text(size=20))+
   theme(axis.title.y = element_text(size=28))+
   theme(axis.line=element_line()) 
+
+
+  
 
 ggsave("/Users/pierrickharnay/Dropbox/MyProjects/Pocillopora-Lagoon-Abundance/Output/S1_RA_240607.jpg", S1.plot, height=4, width=5)
 ggsave("/Users/pierrickharnay/Dropbox/MyProjects/Pocillopora-Lagoon-Abundance/Output/S2_RA_240607.jpg", S2.plot, height=4, width=5)
