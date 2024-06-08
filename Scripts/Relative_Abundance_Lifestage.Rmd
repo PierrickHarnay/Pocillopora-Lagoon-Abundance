@@ -114,9 +114,6 @@ ggplot(., aes(x = Transect, y = freq, fill=Stage)) +
   theme(axis.title.y = element_text(size=28))+
   theme(axis.line=element_line()) 
 
-# Split in horizontal direction
-S1.plot_test + facet_grid(rows = vars(Stage))
-
 S2.plot <- Rel.Abund %>%
   filter(Site=="S2") %>%
 ggplot(., aes(x = Transect, y = freq, fill=Stage)) +

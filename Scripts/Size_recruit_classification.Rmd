@@ -19,7 +19,7 @@ library("dplyr")
 
 load data for size recruit scale
 ```{r}
-data_scale<- read.csv("Data/Size_recruit_scale_data.csv", sep=";", header = TRUE, na.strings = "NA")
+data_scale<- read.csv("/Users/pierrickharnay/Dropbox/MyProjects/Pocillopora-Lagoon-Abundance/Data/POC_ID_RA_list_size.csv", sep=";", header = TRUE, na.strings = "NA")
 colnames(data_scale)
 class(data_scale)
 str(data_scale)
