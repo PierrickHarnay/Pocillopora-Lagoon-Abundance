@@ -1,0 +1,26 @@
+---
+title: "Untitled"
+author: "HM Putnam"
+date: "2024-07-26"
+output: html_document
+---
+load libraries
+```{r}
+library(tidyverse)
+
+```
+
+load data
+```{r}
+
+poclist <- read.csv("Data/POC_ID_RA_list.csv")
+poclist$IDS <- paste0(poclist$Number, "_", poclist$gDNA.Extraction.Plate)
+
+platemaps <- read.csv("Data/ExtractionPlates.csv")
+platemaps$IDS <- paste0(platemaps$Number, "_", platemaps$gDNA.Extraction.Plate)
+
+data <- left_join(poclist, platemaps, by="IDS")
+
+write.csv(data, "Data/POC_ID_RA_list_with_wells.csv")
+
+```
