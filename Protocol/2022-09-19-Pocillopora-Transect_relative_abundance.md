@@ -66,7 +66,7 @@ Our study is based on population genetics of *Pocillopora sp.* on the Polynesian
 13. Take a picture of the bag that will contain the sample  
 14. Sample a fragment of a branch of about 4-5cm maximum (depending on the size of the colony). **Each sample collecting need to be on the transect line or at 25cm to the left or right to the line maximum** (see figure bellow) 
 
-![TRANSECT_PROTOCOL](https://pierrickharnay.github.io/PierrickHarnay_Notebook/images/TRANSECT_PROTOCOL.JPG) 
+![POCID_Transect_protocol](https://pierrickharnay.github.io/PierrickHarnay_Notebook/images/POCID_Transect_protocol.JPG) 
 
 15. Close the sample bag
 16. Place the bag in the meshbag assigned to the transect number
