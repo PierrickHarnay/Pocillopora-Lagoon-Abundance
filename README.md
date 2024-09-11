@@ -11,6 +11,6 @@ Many scientific papers identify species from a morphological rather than a genet
 
 #### General experimental protocol
 
-![POCID_protocol.JPG](/Users/pierrickharnay/Dropbox/MyProjects/Pocillopora-Lagoon-Abundance/Output/POCID_protocol.JPG)  
+![POCID_protocol.JPG](https://pierrickharnay.github.io/PierrickHarnay_Notebook/images/POCID_protocol.JPG)  
 
 
