@@ -1,0 +1,83 @@
+---
+title: "Untitled"
+author: "HM Putnam"
+date: "2024-07-26"
+output: html_document
+---
+load libraries
+```{r}
+library(tidyverse)
+
+```
+
+load data
+```{r}
+sample.info <- read.csv("Data/sample.info.csv")
+
+data <- read.csv("Data/Haplotype_data.csv", na.strings = "NA")
+
+data <- left_join(data, sample.info, by="Sample.ID")
+
+str(data)
+
+cols <- cbind.data.frame(Haplotype = factor(c("Haplotype 10",
+                                            "Haplotype 1a",
+                                            "Haplotype 3",
+                                            #"P. grandis",
+                                            "Haplotype 11",
+                                            "Haplotype 5a",
+                                            "Haplotype 8a")),
+                         Color = c("#D55E00",
+                                   "#0072B2",
+                                   "#E69F00",
+                                   "#56B4E9",
+                                   #"#009E73",
+                                   "#e63946",
+                                   "#CC79A7"))
+                                   
+color_mapping <- setNames(cols$Color, cols$Haplotype)
+
+
+```
+
+
+Calculate relative abundance
+```{r}
+relative_abundance <- data %>%
+  group_by(Site, Haplotype) %>%
+  summarise(count = n(), .groups = 'drop') %>%  # Count occurrences of each haplotype
+  group_by(Site) %>%
+  mutate(relative_abundance = count / sum(count)) %>%
+  filter(!Site=="NA")
+
+
+# Calculate sample sizes and add to relative_abundance
+sample_sizes <- data %>%
+  group_by(Site) %>%
+  summarise(sample_size = n(), .groups = 'drop')
+
+# Join sample sizes with relative abundance data
+relative_abundance <- relative_abundance %>%
+  left_join(sample_sizes, by = "Site")
+
+# Create the bar plot with sample sizes
+ggplot(relative_abundance, aes(x = Site, y = relative_abundance, fill = Haplotype)) +
+  geom_bar(stat = "identity", position = "stack") +  # Use stacked bars
+  geom_text(aes(label = sample_size , y = 1), 
+            color = "black", 
+            size = 4) +  # Adjust the size as needed
+  labs(title = "Relative Abundance of Haplotypes by Site",
+       x = "Site",
+       y = "Relative Abundance") +
+  theme_minimal() +  # Clean theme
+  scale_y_continuous(labels = scales::percent) +  # Convert y-axis to percentage
+  scale_fill_manual(values = color_mapping) +  # Set the fill colors
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better visibility
+
+
+
+
+
+
+
+```
