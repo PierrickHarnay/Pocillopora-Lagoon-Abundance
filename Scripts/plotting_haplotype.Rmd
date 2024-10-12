@@ -7,6 +7,8 @@ output: html_document
 load libraries
 ```{r}
 library(tidyverse)
+library(ggmap)
+library(ggsn)
 
 ```
 
@@ -39,16 +41,54 @@ color_mapping <- setNames(cols$Color, cols$Haplotype)
 
 
 ```
+Moorea site map
+```{r}
+register_google(key = "AIzaSyAJHWQg-KMSzffFNWaO1zAakoBz-klFhIg") ### use your own API
 
+# location
+Moorea<-data.frame(lon = -149.83246425684064, lat = -17.531092816791094)
+
+#Map base
+M1<-get_map(Moorea,zoom = 12, maptype = 'satellite')
+
+bbx <- c(left=-149.802,bottom= -17.480,right=-149.805,top=-17.475)
+x <- c(bbx["left"], bbx["left"], bbx["right"], bbx["right"])
+y <- c(bbx["bottom"], bbx["top"], bbx["top"], bbx["bottom"])
+df <- data.frame(x, y)
+
+sitedata <- read.csv("Data/completed.transect.site.coords.csv")
+str(sitedata)
+
+labels <- sitedata$site.name
+
+MooreaSitemap<-ggmap(M1)+
+  scalebar(x.min = -149.75, x.max = -149.79,y.min = -17.60, y.max = -17.58,
+           model = 'WGS84', box.fill = c("yellow", "white"), st.color = "white",st.dist=0.3,
+           location =  "bottomright", transform = TRUE, dist_unit = "km", dist = 1) +
+  geom_point(data = sitedata, mapping = aes(x=long, y=lat), size=2, color="yellow")+
+  geom_text(data = sitedata, aes(x=long, y=lat, label=site.name),vjust = -2,size=3, color="yellow")+
+  xlab("")+
+  ylab("")
+
+MooreaSitemap
+
+
+```
 
 Calculate relative abundance
 ```{r}
+
+data  <- data %>%
+  filter(!Site=="NA") %>%
+  filter(!Haplotype=="NA")
+
 relative_abundance <- data %>%
   group_by(Site, Haplotype) %>%
   summarise(count = n(), .groups = 'drop') %>%  # Count occurrences of each haplotype
   group_by(Site) %>%
   mutate(relative_abundance = count / sum(count)) %>%
-  filter(!Site=="NA")
+  filter(!Site=="NA") %>%
+  filter(!Haplotype=="NA")
 
 
 # Calculate sample sizes and add to relative_abundance
@@ -60,24 +100,43 @@ sample_sizes <- data %>%
 relative_abundance <- relative_abundance %>%
   left_join(sample_sizes, by = "Site")
 
+#reorder plot in increasing site order
+#relative_abundance$Site <- factor(relative_abundance$Site, levels = c("S1","S2","S3", "S4", "S5","S6",
+#                                                                      "S9", "S11","S12", "S14", "S15","S18"))
+
+relative_abundance$Site <- factor(relative_abundance$Site, levels = c("S18","S15","S14", "S12", "S11","S9",
+                                                                      "S6", "S5","S4", "S3", "S2","S1"))
+
+
 # Create the bar plot with sample sizes
-ggplot(relative_abundance, aes(x = Site, y = relative_abundance, fill = Haplotype)) +
+RA.plot <- ggplot(relative_abundance, aes(x = Site, y = relative_abundance, fill = Haplotype)) +
   geom_bar(stat = "identity", position = "stack") +  # Use stacked bars
-  geom_text(aes(label = sample_size , y = 1), 
+  geom_text(aes(label = sample_size , y = -0.05), 
             color = "black", 
-            size = 4) +  # Adjust the size as needed
+            size = 2) +  # Adjust the size as needed
   labs(title = "Relative Abundance of Haplotypes by Site",
        x = "Site",
        y = "Relative Abundance") +
   theme_minimal() +  # Clean theme
   scale_y_continuous(labels = scales::percent) +  # Convert y-axis to percentage
   scale_fill_manual(values = color_mapping) +  # Set the fill colors
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better visibility
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+  # Rotate x-axis labels for better visibility
+  coord_flip()+
+  theme(legend.position = "top")
+RA.plot
 
+```
 
+```{r}
 
+# Combine the two plots
+combined_plot <- grid.arrange(MooreaSitemap, RA.plot, ncol = 2)
 
+# Save the combined plot
+ggsave("combined_plot.png", plot = combined_plot, width = 12, height = 6)
 
+(RA.plot+MooreaSitemap) 
+ggsave("Output/Poc_RA_SiteMap.pdf", plot = last_plot(), width = 12, height = 6)
 
 
 ```
