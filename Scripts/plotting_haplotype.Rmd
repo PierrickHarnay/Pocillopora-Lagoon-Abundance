@@ -9,6 +9,7 @@ load libraries
 library(tidyverse)
 library(ggmap)
 library(ggsn)
+library(gridExtra)
 
 ```
 
@@ -133,10 +134,7 @@ RA.plot
 combined_plot <- grid.arrange(MooreaSitemap, RA.plot, ncol = 2)
 
 # Save the combined plot
-ggsave("combined_plot.png", plot = combined_plot, width = 12, height = 6)
-
-(RA.plot+MooreaSitemap) 
-ggsave("Output/Poc_RA_SiteMap.pdf", plot = last_plot(), width = 12, height = 6)
+ggsave("Output/Poc_RA_SiteMap.pdf", plot = combined_plot, width = 12, height = 6)
 
 
 ```
