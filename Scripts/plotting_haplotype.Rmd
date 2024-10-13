@@ -23,18 +23,21 @@ data <- left_join(data, sample.info, by="Sample.ID")
 
 str(data)
 
+# set the colors for plotting
 cols <- cbind.data.frame(Haplotype = factor(c("Haplotype 10",
                                             "Haplotype 1a",
                                             "Haplotype 3",
                                             #"P. grandis",
+                                            "Haplotype 2",
                                             "Haplotype 11",
                                             "Haplotype 5a",
                                             "Haplotype 8a")),
                          Color = c("#D55E00",
                                    "#0072B2",
                                    "#E69F00",
-                                   "#56B4E9",
-                                   #"#009E73",
+                                   #"#56B4E9",
+                                   "#009E73",
+                                   "#009E73",
                                    "#e63946",
                                    "#CC79A7"))
                                    
