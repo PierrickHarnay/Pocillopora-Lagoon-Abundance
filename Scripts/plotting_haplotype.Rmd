@@ -118,15 +118,14 @@ RA.plot <- ggplot(relative_abundance, aes(x = Site, y = relative_abundance, fill
   geom_text(aes(label = sample_size , y = -0.05), 
             color = "black", 
             size = 2) +  # Adjust the size as needed
-  labs(title = "Relative Abundance of Haplotypes by Site",
-       x = "Site",
+  labs(x = "Site",
        y = "Relative Abundance") +
   theme_minimal() +  # Clean theme
   scale_y_continuous(labels = scales::percent) +  # Convert y-axis to percentage
   scale_fill_manual(values = color_mapping) +  # Set the fill colors
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+  # Rotate x-axis labels for better visibility
   coord_flip()+
-  theme(legend.position = "top")
+  theme(legend.position = "right")
 RA.plot
 
 ```
@@ -137,7 +136,7 @@ RA.plot
 combined_plot <- grid.arrange(MooreaSitemap, RA.plot, ncol = 2)
 
 # Save the combined plot
-ggsave("Output/Poc_RA_SiteMap.pdf", plot = combined_plot, width = 12, height = 6)
+ggsave("Output/Poc_RA_SiteMap.pdf", plot = combined_plot, width = 14, height = 6)
 
 
 ```
