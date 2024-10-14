@@ -24,24 +24,43 @@ data <- left_join(data, sample.info, by="Sample.ID")
 str(data)
 
 # set the colors for plotting
-cols <- cbind.data.frame(Haplotype = factor(c("Haplotype 10",
-                                            "Haplotype 1a",
-                                            "Haplotype 3",
+# cols.haplotype <- cbind.data.frame(Haplotype = factor(c("Haplotype 10",
+#                                             "Haplotype 1a",
+#                                             "Haplotype 3",
+#                                             #"P. grandis",
+#                                             "Haplotype 2",
+#                                             "Haplotype 11",
+#                                             "Haplotype 5a",
+#                                             "Haplotype 8a")),
+#                          Color = c("#D55E00",
+#                                    "#0072B2",
+#                                    "#E69F00",
+#                                    #"#56B4E9",
+#                                    "#009E73",
+#                                    "#009E73",
+#                                    "#e63946",
+#                                    "#CC79A7"))
+#                                    
+# color_mapping <- setNames(cols.haplotype$Color, cols.haplotype$Haplotype)
+
+
+cols.species <- cbind.data.frame(Species = factor(c("P. tuahiniensis",
+                                            "P. meandrina P. grandis",
+                                            "P. verrucosa",
                                             #"P. grandis",
-                                            "Haplotype 2",
-                                            "Haplotype 11",
-                                            "Haplotype 5a",
-                                            "Haplotype 8a")),
+                                            "P. effusa",
+                                            "P. acuta",
+                                            "P. meandrina")),
                          Color = c("#D55E00",
                                    "#0072B2",
                                    "#E69F00",
                                    #"#56B4E9",
                                    "#009E73",
-                                   "#009E73",
                                    "#e63946",
                                    "#CC79A7"))
                                    
-color_mapping <- setNames(cols$Color, cols$Haplotype)
+color_mapping <- setNames(cols.species$Color, cols.species$Species)
+
 
 
 ```
@@ -84,15 +103,15 @@ Calculate relative abundance
 
 data  <- data %>%
   filter(!Site=="NA") %>%
-  filter(!Haplotype=="NA")
+  filter(!Species=="NA")
 
 relative_abundance <- data %>%
-  group_by(Site, Haplotype) %>%
+  group_by(Site, Species) %>%
   summarise(count = n(), .groups = 'drop') %>%  # Count occurrences of each haplotype
   group_by(Site) %>%
   mutate(relative_abundance = count / sum(count)) %>%
   filter(!Site=="NA") %>%
-  filter(!Haplotype=="NA")
+  filter(!Species=="NA")
 
 
 # Calculate sample sizes and add to relative_abundance
@@ -113,7 +132,7 @@ relative_abundance$Site <- factor(relative_abundance$Site, levels = c("S18","S15
 
 
 # Create the bar plot with sample sizes
-RA.plot <- ggplot(relative_abundance, aes(x = Site, y = relative_abundance, fill = Haplotype)) +
+RA.plot <- ggplot(relative_abundance, aes(x = Site, y = relative_abundance, fill = Species)) +
   geom_bar(stat = "identity", position = "stack") +  # Use stacked bars
   geom_text(aes(label = sample_size , y = -0.05), 
             color = "black", 
@@ -137,6 +156,7 @@ combined_plot <- grid.arrange(MooreaSitemap, RA.plot, ncol = 2)
 
 # Save the combined plot
 ggsave("Output/Poc_RA_SiteMap.pdf", plot = combined_plot, width = 14, height = 6)
+ggsave("Output/Poc_RA_SiteMap.jpg", plot = combined_plot, width = 14, height = 6)
 
 
 ```
