@@ -22,6 +22,12 @@ all.data <- read.csv("Data/POC_ID_RA_list.csv")
 sample.counts <- all.data %>%
   group_by(Site) %>%
   summarise(total = n()) 
+sample.counts
+
+sample.transect.counts <- all.data %>%
+  group_by(Site, Transect) %>%
+  summarise(total = n()) 
+sample.transect.counts 
 
 ```
 
@@ -217,6 +223,10 @@ sample_sizes <- data %>%
 relative_abundance <- relative_abundance %>%
   left_join(sample_sizes, by = "Site")
 
+relative_abundance <- relative_abundance %>%
+  left_join(sample.counts, by = "Site")
+
+
 relative_abundance$Site <- factor(relative_abundance$Site, levels = c("S18","S15","S14", "S12", "S11","S9",
                                                                       "S6", "S5","S4", "S3", "S2","S1"))
 
@@ -225,6 +235,9 @@ RA.plot <- ggplot(relative_abundance, aes(x = Site, y = Relative_Abundance, fill
   geom_bar(stat = "identity", position = "stack") +  # Use stacked bars
   geom_text(aes(label = sample_size, y = -0.06), 
             color = "black", 
+            size = 2) +  # Adjust the size as needed
+  geom_text(aes(label = total, y = -0.02), 
+            color = "blue", 
             size = 2) +  # Adjust the size as needed
   labs(x = "Site",
        y = "Relative Abundance") +
@@ -270,5 +283,34 @@ combined_plot <- grid.arrange(p1_label, p2_label, p3_label, ncol = 3)
 ggsave("Output/Poc_RA_LifeStage_SiteMap.pdf", plot = combined_plot, width = 20, height = 6)
 ggsave("Output/Poc_RA_LifeStage_SiteMap.jpg", plot = combined_plot, width = 20, height = 6)
 
+
+```
+
+
+Density of Pocillopora
+```{r}
+
+sample.transect.counts <- all.data %>%
+  group_by(Site, Transect) %>%
+  summarise(total = n()) 
+sample.transect.counts 
+
+transect_counts <- all.data %>%
+  group_by(Site) %>%
+  summarise(num_transects = n_distinct(Transect))
+
+transect_counts <- left_join(transect_counts, sample.counts, by="Site")
+
+transect.area <- 50 #m2
+transect_counts$Poc.density <- transect_counts$total/ (transect_counts$num_transects * transect.area)
+str(transect_counts)
+
+ggplot(transect_counts, aes(x = Poc.density, y = Site)) +
+  geom_point()+
+  labs(title = "Density Plot of Poc Density by Site",
+       x = "Poc Density",
+       y = "Density") +
+  theme_minimal() +
+  theme(legend.title = element_blank())
 
 ```
