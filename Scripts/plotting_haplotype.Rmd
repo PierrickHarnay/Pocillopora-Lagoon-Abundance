@@ -21,11 +21,41 @@ all.data <- read.csv("Data/POC_ID_RA_list.csv")
 
 sample.counts <- all.data %>%
   group_by(Site) %>%
-  summarise(count = n()) 
+  summarise(total = n()) 
 
 ```
 
-load data
+load size data
+```{r}
+size.data <- read.csv("Data/POC_RA_Size.csv")
+
+# Set a seed for reproducibility (optional)
+set.seed(123)
+
+# Fill Diameter.1 with random values from 0.1 to 1000
+size.data$Diameter.1 <- runif(nrow(size.data), min = 0.1, max = 1000)
+
+# Function to generate a value within 2 units of a given value
+generate_within_two <- function(value) {
+  min_val <- max(0.1, value - 2)  # Ensure the value does not go below 0.1
+  max_val <- value + 2
+  runif(1, min = min_val, max = max_val)
+}
+
+# Fill Diameter.2 and Diameter.3
+size.data$Diameter.2 <- sapply(size.data$Diameter.1, generate_within_two)
+size.data$Diameter.3 <- sapply(size.data$Diameter.1, generate_within_two)
+
+
+# Calculate the average of the Diameter columns
+size.data <- size.data %>%
+  mutate(Average.Diameter.cm = rowMeans(select(., Diameter.1, Diameter.2, Diameter.3), na.rm = TRUE))
+
+
+```
+
+
+load abundance data
 ```{r}
 sample.info <- read.csv("Data/sample.info.csv")
 
@@ -33,7 +63,6 @@ data <- read.csv("Data/Haplotype_data.csv", na.strings = "NA")
 
 data <- left_join(data, sample.info, by="Sample.ID")
 
-str(data)
 
 # set the colors for plotting
 # cols.haplotype <- cbind.data.frame(Haplotype = factor(c("Haplotype 10",
@@ -76,6 +105,33 @@ color_mapping <- setNames(cols.species$Color, cols.species$Species)
 
 
 ```
+
+Join id and size and set size categories
+```{r}
+
+colnames(data)
+colnames(size.data)
+
+data <- left_join(data, size.data, by="Sample.ID")
+
+data <- data %>%
+  select(Sample.ID, Site.x, Transect.x,Species, Average.Diameter.cm)
+
+colnames(data) <- c("Sample.ID", "Site", "Transect", "Species", "Average.Diameter.cm")
+
+# Define the break points for the categories
+breaks <- c(0,0.2, 5, 14, Inf)  # Adjust these values as needed
+labels <- c("Spat", "Recruit", "Juvenile", "Adult")  # Category labels
+
+# Create a new column for LifeStage based on Average.Diameter.cm
+data$LifeStage <- cut(data$Average.Diameter.cm, 
+                      breaks = breaks, 
+                      labels = labels, 
+                      right = FALSE)  # Use right=FALSE to make intervals [a, b)
+
+
+```
+
 Moorea site map
 ```{r}
 register_google(key = "AIzaSyAJHWQg-KMSzffFNWaO1zAakoBz-klFhIg") ### use your own API
@@ -110,21 +166,47 @@ MooreaSitemap
 
 ```
 
-Calculate relative abundance
+Calculate relative abundance per Site by Species and Life Stage
 ```{r}
 
 data  <- data %>%
   filter(!Site=="NA") %>%
   filter(!Species=="NA")
 
-relative_abundance <- data %>%
-  group_by(Site, Species) %>%
-  summarise(count = n(), .groups = 'drop') %>%  # Count occurrences of each haplotype
-  group_by(Site) %>%
-  mutate(relative_abundance = count / sum(count)) %>%
-  filter(!Site=="NA") %>%
-  filter(!Species=="NA")
+relative_abundance.LS <- data %>%
+  group_by(Site, LifeStage, Species) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  group_by(Site, LifeStage) %>%
+  mutate(Relative_Abundance = Count / sum(Count)) %>%
+  ungroup()
 
+relative_abundance.LS$Site <- factor(relative_abundance.LS$Site, levels = c("S18","S15","S14", "S12", "S11","S9",
+                                                                      "S6", "S5","S4", "S3", "S2","S1"))
+
+
+RA.LS.plot <- ggplot(relative_abundance.LS, aes(x = Site, y = Relative_Abundance, fill = Species)) +
+  geom_bar(stat = "identity", position = "fill") +
+  facet_wrap(~ LifeStage, ncol=4) +
+  labs(x = "Site",
+       y = "Relative Abundance") +
+  theme_minimal() +  # Clean theme
+  scale_y_continuous(labels = scales::percent) +  # Convert y-axis to percentage
+  scale_fill_manual(values = color_mapping) +  # Set the fill colors
+  theme_minimal() +
+  coord_flip()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+RA.LS.plot 
+```
+
+Calculate relative abundance per Site by Species and Life Stage
+```{r}
+
+relative_abundance <- data %>%
+  group_by(Site,Species) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  group_by(Site) %>%
+  mutate(Relative_Abundance = Count / sum(Count)) %>%
+  ungroup()
 
 # Calculate sample sizes and add to relative_abundance
 sample_sizes <- data %>%
@@ -135,22 +217,14 @@ sample_sizes <- data %>%
 relative_abundance <- relative_abundance %>%
   left_join(sample_sizes, by = "Site")
 
-#reorder plot in increasing site order
-#relative_abundance$Site <- factor(relative_abundance$Site, levels = c("S1","S2","S3", "S4", "S5","S6",
-#                                                                      "S9", "S11","S12", "S14", "S15","S18"))
-
 relative_abundance$Site <- factor(relative_abundance$Site, levels = c("S18","S15","S14", "S12", "S11","S9",
                                                                       "S6", "S5","S4", "S3", "S2","S1"))
 
 
-# Create the bar plot with sample sizes
-RA.plot <- ggplot(relative_abundance, aes(x = Site, y = relative_abundance, fill = Species)) +
+RA.plot <- ggplot(relative_abundance, aes(x = Site, y = Relative_Abundance, fill = Species)) +
   geom_bar(stat = "identity", position = "stack") +  # Use stacked bars
-  geom_text(aes(label = sample_size , y = -0.05), 
+  geom_text(aes(label = sample_size, y = -0.06), 
             color = "black", 
-            size = 2) +  # Adjust the size as needed
-  geom_text(aes(label = sample.counts$count , y = -0.02), 
-            color = "blue", 
             size = 2) +  # Adjust the size as needed
   labs(x = "Site",
        y = "Relative Abundance") +
@@ -159,23 +233,42 @@ RA.plot <- ggplot(relative_abundance, aes(x = Site, y = relative_abundance, fill
   scale_fill_manual(values = color_mapping) +  # Set the fill colors
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+  # Rotate x-axis labels for better visibility
   coord_flip()+
-  theme(legend.position = "right")
-RA.plot
-
+  theme(legend.position = "none")
+RA.plot 
 ```
 
+<!-- Combine Map and Life Stage Specific Relative Abundance -->
+<!-- ```{r} -->
+
+<!-- # Combine the two plots and labels -->
+<!-- p1_label <- ggdraw() + draw_plot(MooreaSitemap) + draw_label("A)", x = 0.05, y = 0.97, size = 20, fontface = "bold") -->
+<!-- p2_label <- ggdraw() + draw_plot(RA.LS.plot) + draw_label("B)", x = 0.05, y = 0.97, size = 20, fontface = "bold") -->
+
+<!-- combined_plot <- grid.arrange(p1_label, p2_label, ncol = 2) -->
+
+
+<!-- # Save the combined plot -->
+<!-- ggsave("Output/Poc_RA_SiteMap.pdf", plot = combined_plot, width = 14, height = 6) -->
+<!-- ggsave("Output/Poc_RA_SiteMap.jpg", plot = combined_plot, width = 14, height = 6) -->
+
+
+<!-- ``` -->
+
+
+Combine Map and total Relative Abundance
 ```{r}
 
 # Combine the two plots and labels
 p1_label <- ggdraw() + draw_plot(MooreaSitemap) + draw_label("A)", x = 0.05, y = 0.97, size = 20, fontface = "bold")
 p2_label <- ggdraw() + draw_plot(RA.plot) + draw_label("B)", x = 0.05, y = 0.97, size = 20, fontface = "bold")
+p3_label <- ggdraw() + draw_plot(RA.LS.plot) + draw_label("C)", x = 0.05, y = 0.97, size = 20, fontface = "bold")
 
-combined_plot <- grid.arrange(p1_label, p2_label, ncol = 2)
+combined_plot <- grid.arrange(p1_label, p2_label, p3_label, ncol = 3)
 
 
 # Save the combined plot
-ggsave("Output/Poc_RA_SiteMap.pdf", plot = combined_plot, width = 14, height = 6)
-ggsave("Output/Poc_RA_SiteMap.jpg", plot = combined_plot, width = 14, height = 6)
+ggsave("Output/Poc_RA_LifeStage_SiteMap.pdf", plot = combined_plot, width = 20, height = 6)
+ggsave("Output/Poc_RA_LifeStage_SiteMap.jpg", plot = combined_plot, width = 20, height = 6)
 
 
 ```
