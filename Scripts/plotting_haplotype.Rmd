@@ -246,7 +246,7 @@ RA.plot <- ggplot(relative_abundance, aes(x = Site, y = Relative_Abundance, fill
   scale_fill_manual(values = color_mapping) +  # Set the fill colors
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+  # Rotate x-axis labels for better visibility
   coord_flip()+
-  theme(legend.position = "none")
+  theme(legend.position = "right")
 RA.plot 
 ```
 
@@ -276,12 +276,13 @@ p1_label <- ggdraw() + draw_plot(MooreaSitemap) + draw_label("A)", x = 0.05, y =
 p2_label <- ggdraw() + draw_plot(RA.plot) + draw_label("B)", x = 0.05, y = 0.97, size = 20, fontface = "bold")
 p3_label <- ggdraw() + draw_plot(RA.LS.plot) + draw_label("C)", x = 0.05, y = 0.97, size = 20, fontface = "bold")
 
-combined_plot <- grid.arrange(p1_label, p2_label, p3_label, ncol = 3)
+combined_plot.2 <- grid.arrange(p1_label, p2_label, ncol = 2)
+combined_plot.3 <- grid.arrange(p1_label, p2_label, p3_label, ncol = 3)
 
 
 # Save the combined plot
 ggsave("Output/Poc_RA_LifeStage_SiteMap.pdf", plot = combined_plot, width = 20, height = 6)
-ggsave("Output/Poc_RA_LifeStage_SiteMap.jpg", plot = combined_plot, width = 20, height = 6)
+ggsave("Output/Poc_RA_LifeStage_SiteMap.jpg", plot = combined_plot.2, width = 14, height = 6)
 
 
 ```
