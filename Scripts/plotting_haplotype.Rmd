@@ -281,7 +281,7 @@ combined_plot.3 <- grid.arrange(p1_label, p2_label, p3_label, ncol = 3)
 
 
 # Save the combined plot
-ggsave("Output/Poc_RA_LifeStage_SiteMap.pdf", plot = combined_plot, width = 20, height = 6)
+ggsave("Output/Poc_RA_LifeStage_SiteMap.pdf", plot = combined_plot.2, width = 20, height = 6)
 ggsave("Output/Poc_RA_LifeStage_SiteMap.jpg", plot = combined_plot.2, width = 14, height = 6)
 
 
