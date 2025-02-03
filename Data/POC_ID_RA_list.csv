@@ -590,6 +590,7 @@ Date_french_format,Number,Stage,Timing,Site,Transect,ID,Replicate,Data,Backup,Qu
 19/03/2024,3679,,Pre_bleach,S12,T2,POC_ID,2,1,1,0.75,0.75,Site_12_1_Data,Site_12_1_Backup,Moorea,_40_up,YES,YES,,NA,NA,,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,,,Plate027,,,,,
 19/03/2024,3680,,Pre_bleach,S12,T2,POC_ID,2,1,1,0.75,0.75,Site_12_1_Data,Site_12_1_Backup,Moorea,_40_up,YES,YES,,NA,NA,,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,,,Plate027,,,,,
 20/03/2024,2912,,Pre_bleach,S12,T3,POC_ID,2,1,1,0.75,0.75,Site_12_2_Data,Site_12_2_Backup,Moorea,_40_up,YES,YES,,NA,NA,,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,,,Plate024,,,,,
+20/03/2024,2913,,Pre_bleach,S12,T3,POC_ID,2,1,1,0.75,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 20/03/2024,2914,,Pre_bleach,S12,T3,POC_ID,2,1,1,0.75,0.75,Site_12_2_Data,Site_12_2_Backup,Moorea,_40_up,YES,YES,,NA,NA,,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,,,Plate024,,,,,
 20/03/2024,2915,,Pre_bleach,S12,T3,POC_ID,2,1,1,0.75,0.75,Site_12_2_Data,Site_12_2_Backup,Moorea,_40_up,YES,YES,,NA,NA,,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,,,Plate003,,,,Also in plate 23,https://hputnam.github.io/Putnam_Lab_Notebook/PocID_COTS_RAPID_Plate002_003/
 20/03/2024,2916,,Pre_bleach,S12,T3,POC_ID,2,1,1,0.75,0.75,Site_12_2_Data,Site_12_2_Backup,Moorea,_40_up,YES,YES,,NA,NA,,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,,,Plate023,C1,,,,
@@ -617,6 +618,7 @@ Date_french_format,Number,Stage,Timing,Site,Transect,ID,Replicate,Data,Backup,Qu
 20/03/2024,3512,,Pre_bleach,S12,T3,POC_ID,2,1,1,0.75,0.75,Site_12_2_Data,Site_12_2_Backup,Moorea,_40_up,YES,YES,,NA,NA,,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,,,Plate023,B7,,,,
 20/03/2024,3513,,Pre_bleach,S12,T3,POC_ID,2,1,1,0.75,0.75,Site_12_2_Data,Site_12_2_Backup,Moorea,_40_up,YES,YES,,NA,NA,,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,,,Plate024,,,,,
 20/03/2024,3514,,Pre_bleach,S12,T3,POC_ID,2,1,1,0.75,0.75,Site_12_2_Data,Site_12_2_Backup,Moorea,_40_up,YES,YES,,NA,NA,,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,,,Plate024,,,,,
+20/03/2024,3515,,Pre_bleach,S12,T3,POC_ID,2,1,1,0.75,0.75,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 20/03/2024,3516,,Pre_bleach,S12,T3,POC_ID,2,1,1,0.75,0.75,Site_12_2_Data,Site_12_2_Backup,Moorea,_40_up,YES,YES,,NA,NA,,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,,,Plate024,,,,,
 20/03/2024,3517,,Pre_bleach,S12,T3,POC_ID,2,1,1,0.75,0.75,Site_12_2_Data,Site_12_2_Backup,Moorea,_40_up,YES,YES,,NA,NA,,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,,,Plate024,,,,,
 20/03/2024,3518,,Pre_bleach,S12,T3,POC_ID,2,1,1,0.75,0.75,Site_12_2_Data,Site_12_2_Backup,Moorea,_40_up,YES,YES,,NA,NA,,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,,,Plate023,C4,,,,
