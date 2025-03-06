@@ -1,5 +1,5 @@
 # Pocillopora-Lagoon-Abundance
-# Chapter 3 BSF PhD
+# Chapter 3 PhD
 ## Research question :
 ## Characterization and quantification of the relative abundance per life stage of Pocillopora spp. around the island of Mo’orea. 
 ### Title: Relative abundance and skeletal characteristics of Pocillopora spp. based on their environmental conditions and life stage.
