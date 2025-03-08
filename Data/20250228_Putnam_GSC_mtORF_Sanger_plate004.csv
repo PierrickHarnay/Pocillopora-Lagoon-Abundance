@@ -1,4 +1,4 @@
-﻿Sample ID,Plate.Well,Template Type,PCR Template Volume (µl),H20 Volume (µl),Primer Volume (µl),Primer Name,gDNA.Extraction.Plate,Original Sample ID,Sanger.Plate.Name,Haplotype
+Sample ID,Plate.Well,Template Type,PCR Template Volume (µl),H20 Volume (µl),Primer Volume (µl),Primer Name,gDNA.Extraction.Plate,Original Sample ID,Sanger.Plate.Name,Haplotype
 RA2751,A1,PCR,2,8,2,FatP6.1,,,,
 RA2752,B1,PCR,2,8,2,FatP6.1,,,,
 RA2753,C1,PCR,2,8,2,FatP6.1,,,,
