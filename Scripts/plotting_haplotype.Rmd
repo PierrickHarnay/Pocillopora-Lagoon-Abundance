@@ -17,7 +17,8 @@ library(cowplot)
 
 load master list to count samples per site
 ```{r}
-all.data <- read.csv("Data/POC_ID_RA_list.csv")
+all.data <- read.csv("Data/POC_ID_RA_list.csv")%>%
+  filter(Timing=="Pre_bleach")
 
 sample.counts <- all.data %>%
   group_by(Site) %>%
