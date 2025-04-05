@@ -196,6 +196,13 @@ relative_abundance.LS$Site <- factor(relative_abundance.LS$Site, levels = c("S18
 relative_abundance.LS <-relative_abundance.LS %>%
   filter(Site %in% c("S14", "S15"))
 
+str(relative_abundance.LS)
+
+# Calculate sample size for each Site and LifeStage
+sample_sizes <- relative_abundance.LS %>%
+  group_by(Site, LifeStage) %>%
+  summarise(Sample_Size = sum(Count), .groups = "drop")
+
 RA.LS.plot <- ggplot(relative_abundance.LS, aes(x = Site, y = Relative_Abundance, fill = Species)) +
   geom_bar(stat = "identity", position = "fill") +
   facet_wrap(~ LifeStage, ncol=5) +
@@ -206,7 +213,9 @@ RA.LS.plot <- ggplot(relative_abundance.LS, aes(x = Site, y = Relative_Abundance
   scale_fill_manual(values = color_mapping) +  # Set the fill colors
   theme_minimal() +
   coord_flip()+
-  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top")
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top") +
+  # Add sample size text
+  geom_text(data = sample_sizes, aes(x = Site, y = 1.1, label = Sample_Size),inherit.aes = FALSE, size = 2, vjust = 0, color = "black")
 RA.LS.plot 
 
 ggsave("Output/relabund.bysize.jpg", RA.LS.plot , width = 6, height = 4 )
