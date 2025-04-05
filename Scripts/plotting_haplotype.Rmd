@@ -36,22 +36,22 @@ load size data
 ```{r}
 size.data <- read.csv("Data/POC_RA_Size.csv")
 
-# Set a seed for reproducibility (optional)
-set.seed(123)
-
-# Fill Diameter.1 with random values from 0.1 to 1000
-size.data$Diameter.1 <- runif(nrow(size.data), min = 0.1, max = 1000)
-
-# Function to generate a value within 2 units of a given value
-generate_within_two <- function(value) {
-  min_val <- max(0.1, value - 2)  # Ensure the value does not go below 0.1
-  max_val <- value + 2
-  runif(1, min = min_val, max = max_val)
-}
-
-# Fill Diameter.2 and Diameter.3
-size.data$Diameter.2 <- sapply(size.data$Diameter.1, generate_within_two)
-size.data$Diameter.3 <- sapply(size.data$Diameter.1, generate_within_two)
+# # Set a seed for reproducibility (optional)
+# set.seed(123)
+# 
+# # Fill Diameter.1 with random values from 0.1 to 1000
+# size.data$Diameter.1 <- runif(nrow(size.data), min = 0.1, max = 1000)
+# 
+# # Function to generate a value within 2 units of a given value
+# generate_within_two <- function(value) {
+#   min_val <- max(0.1, value - 2)  # Ensure the value does not go below 0.1
+#   max_val <- value + 2
+#   runif(1, min = min_val, max = max_val)
+# }
+# 
+# # Fill Diameter.2 and Diameter.3
+# size.data$Diameter.2 <- sapply(size.data$Diameter.1, generate_within_two)
+# size.data$Diameter.3 <- sapply(size.data$Diameter.1, generate_within_two)
 
 
 # Calculate the average of the Diameter columns
@@ -93,16 +93,16 @@ data <- left_join(data, sample.info, by="Sample.ID")
 
 
 cols.species <- cbind.data.frame(Species = factor(c("P. tuahiniensis",
-                                            "P. meandrina P. grandis",
+                                            "P. meandrinaP. grandis",
                                             "P. verrucosa",
-                                            #"P. grandis",
+                                            "P. grandis",
                                             "P. effusa",
                                             "P. acuta",
                                             "P. meandrina")),
                          Color = c("#D55E00",
                                    "#0072B2",
                                    "#E69F00",
-                                   #"#56B4E9",
+                                   "#56B4E9",
                                    "#009E73",
                                    "#e63946",
                                    "#CC79A7"))
@@ -127,8 +127,8 @@ data <- data %>%
 colnames(data) <- c("Sample.ID", "Site", "Transect", "Species", "Average.Diameter.cm")
 
 # Define the break points for the categories
-breaks <- c(0,0.2, 5, 14, Inf)  # Adjust these values as needed
-labels <- c("Spat", "Recruit", "Juvenile", "Adult")  # Category labels
+breaks <- c(0,2, 5, 14, Inf)  # Adjust these values as needed
+labels <- c("0-2cm", ">2cm-5cm", ">5cm-14cm", ">14cm")  # Category labels
 
 # Create a new column for LifeStage based on Average.Diameter.cm
 data$LifeStage <- cut(data$Average.Diameter.cm, 
@@ -178,7 +178,10 @@ Calculate relative abundance per Site by Species and Life Stage
 
 data  <- data %>%
   filter(!Site=="NA") %>%
-  filter(!Species=="NA")
+  filter(!Species=="NA") %>%
+  filter(!Sample.ID==3353)%>%
+  filter(!Sample.ID==3818)%>%
+  filter(!Sample.ID==3553)
 
 relative_abundance.LS <- data %>%
   group_by(Site, LifeStage, Species) %>%
@@ -190,10 +193,12 @@ relative_abundance.LS <- data %>%
 relative_abundance.LS$Site <- factor(relative_abundance.LS$Site, levels = c("S18","S15","S14", "S12", "S11","S9",
                                                                       "S6", "S5","S4", "S3", "S2","S1"))
 
+relative_abundance.LS <-relative_abundance.LS %>%
+  filter(Site %in% c("S14", "S15"))
 
 RA.LS.plot <- ggplot(relative_abundance.LS, aes(x = Site, y = Relative_Abundance, fill = Species)) +
   geom_bar(stat = "identity", position = "fill") +
-  facet_wrap(~ LifeStage, ncol=4) +
+  facet_wrap(~ LifeStage, ncol=5) +
   labs(x = "Site",
        y = "Relative Abundance") +
   theme_minimal() +  # Clean theme
@@ -201,8 +206,11 @@ RA.LS.plot <- ggplot(relative_abundance.LS, aes(x = Site, y = Relative_Abundance
   scale_fill_manual(values = color_mapping) +  # Set the fill colors
   theme_minimal() +
   coord_flip()+
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top")
 RA.LS.plot 
+
+ggsave("Output/relabund.bysize.jpg", RA.LS.plot , width = 6, height = 4 )
+
 ```
 
 Calculate relative abundance per Site by Species and Life Stage
