@@ -8,7 +8,7 @@ load libraries
 ```{r}
 library(tidyverse)
 library(ggmap)
-library(ggsn)
+#library(ggsn)
 library(gridExtra)
 library(cowplot)
 
@@ -119,7 +119,12 @@ Join id and size and set size categories
 colnames(data)
 colnames(size.data)
 
-data <- left_join(data, size.data, by="Sample.ID")
+data <- left_join (data, size.data, by="Sample.ID")
+
+data$Sample.ID <- as.integer(data$Sample.ID)
+
+
+data <- left_join(data, size.data, by = "Sample.ID")
 
 data <- data %>%
   select(Sample.ID, Site.x, Transect.x,Species, Average.Diameter.cm)
@@ -194,7 +199,7 @@ relative_abundance.LS$Site <- factor(relative_abundance.LS$Site, levels = c("S18
                                                                       "S6", "S5","S4", "S3", "S2","S1"))
 
 relative_abundance.LS <-relative_abundance.LS %>%
-  filter(Site %in% c("S11", "S14", "S15", "S12"))
+  filter(Site %in% c("S11", "S14", "S15", "S12", "S18", "S2", "S4"))
 
 str(relative_abundance.LS)
 
