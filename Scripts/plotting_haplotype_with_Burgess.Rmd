@@ -1,0 +1,299 @@
+---
+title: "Untitled"
+author: "HM Putnam"
+date: "2024-07-26"
+output: html_document
+---
+load libraries
+```{r}
+library(tidyverse)
+library(ggmap)
+library(gridExtra)
+library(cowplot)
+
+```
+
+
+load master list to count samples per site
+```{r}
+sample.info <- read.csv("Data/sample.info.csv")
+
+genetic.data <- read.csv("Data/Haplotype_data.csv", na.strings = "NA")
+
+data <- left_join(sample.info, genetic.data, by="Sample.ID")
+
+colnames(data)
+
+data <- data %>% select(Sample.ID, Site, Haplotype, Species)
+
+Burg.data <- read.csv("Data/Burgess_Distribution_data.csv")
+
+all.data <- rbind(data, Burg.data)
+
+unique(all.data$Haplotype)
+
+# set the colors for plotting
+cols.haplotype <- cbind.data.frame(Haplotype = factor(c("Haplotype 10",
+                                            "Haplotype 1a",
+                                            "Haplotype 3",
+                                            #"P. grandis",
+                                            "Haplotype 2",
+                                            "Haplotype 11",
+                                            "Haplotype 5a",
+                                            "Haplotype 8a")),
+                         Color = c("#D55E00",
+                                   "#0072B2",
+                                   "#E69F00",
+                                   #"#56B4E9",
+                                   "lightgreen",
+                                   "#009E73",
+                                   "#e63946",
+                                   "#CC79A7"))
+
+color_mapping <- setNames(cols.haplotype$Color, cols.haplotype$Haplotype)
+
+
+# cols.species <- cbind.data.frame(Species = factor(c("P. tuahiniensis",
+#                                             "P. meandrinaP. grandis",
+#                                             "P. verrucosa",
+#                                             "P. grandis",
+#                                             "P. effusa",
+#                                             "P. acuta",
+#                                             "P. meandrina")),
+#                          Color = c("#D55E00",
+#                                    "#0072B2",
+#                                    "#E69F00",
+#                                    "#56B4E9",
+#                                    "#009E73",
+#                                    "#e63946",
+#                                    "#CC79A7"))
+                                   
+# color_mapping <- setNames(cols.species$Color, cols.species$Species)
+
+
+
+```
+
+Moorea site map
+```{r}
+register_google(key = "AIzaSyAJHWQg-KMSzffFNWaO1zAakoBz-klFhIg") ### use your own API
+
+# location
+Moorea<-data.frame(lon = -149.83246425684064, lat = -17.531092816791094)
+
+#Map base
+M1<-get_map(Moorea,zoom = 12, maptype = 'satellite')
+
+bbx <- c(left=-149.802,bottom= -17.480,right=-149.805,top=-17.475)
+x <- c(bbx["left"], bbx["left"], bbx["right"], bbx["right"])
+y <- c(bbx["bottom"], bbx["top"], bbx["top"], bbx["bottom"])
+df <- data.frame(x, y)
+
+sitedata <- read.csv("Data/harnay.burgess.transect.site.coords.csv")
+str(sitedata)
+
+labels <- sitedata$site.name
+
+MooreaSitemap<-ggmap(M1)+
+ # scalebar(x.min = -149.75, x.max = -149.79,y.min = -17.60, y.max = -17.58,
+#           model = 'WGS84', box.fill = c("yellow", "white"), st.color = "white",st.dist=0.3,
+#           location =  "bottomright", transform = TRUE, dist_unit = "km", dist = 1) +
+  geom_point(data = sitedata, mapping = aes(x=long, y=lat), size=2, color="yellow")+
+  geom_text(data = sitedata, aes(x=long, y=lat, label=site.name),vjust = -2,size=2, color="yellow")+
+  xlab("")+
+  ylab("")
+
+MooreaSitemap
+
+
+```
+
+Calculate relative abundance per Site by Haplotype
+```{r}
+
+all.data  <- all.data %>%
+  filter(!Site=="NA") %>%
+  filter(!Species=="NA") %>%
+  filter(!Haplotype=="NA") %>%
+  filter(!Sample.ID==3353)%>%
+  filter(!Sample.ID==3818)%>%
+  filter(!Sample.ID==3553)
+
+relative_abundance.LS <- all.data %>%
+  group_by(Site, Haplotype) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  group_by(Site) %>%
+  mutate(Relative_Abundance = Count / sum(Count)) %>%
+  ungroup()
+
+relative_abundance.LS$Site <- factor(relative_abundance.LS$Site, levels = c("S18","S15","S14", "LTER 5","S12", "S11","S9","LTER 4","S6", "S5","LTER 2","S4", "S3", "LTER 1", "S2","S1"))
+
+
+# Calculate sample size for each Site and LifeStage
+sample_sizes <- relative_abundance.LS %>%
+  group_by(Site) %>%
+  summarise(Sample_Size = sum(Count), .groups = "drop")
+
+RA.LS.plot <- ggplot(relative_abundance.LS, aes(x = Site, y = Relative_Abundance, fill = Haplotype)) +
+  geom_bar(stat = "identity", position = "fill") +
+  labs(x = "Site",
+       y = "Relative Abundance") +
+  theme_minimal() +  # Clean theme
+  scale_y_continuous(labels = scales::percent) +  # Convert y-axis to percentage
+  scale_fill_manual(values = color_mapping) +  # Set the fill colors
+  theme_minimal() +
+  coord_flip()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top") +
+  # Add sample size text
+  geom_text(data = sample_sizes, aes(x = Site, y = 1.1, label = Sample_Size),inherit.aes = FALSE, size = 2, vjust = 0, color = "black")
+RA.LS.plot 
+
+ggsave("Output/harnay_burgess_relabund.jpg", RA.LS.plot , width = 6, height = 4 )
+
+combined_plot.2 <- grid.arrange(MooreaSitemap, RA.LS.plot, ncol = 2)
+ggsave("Output/harnay_burgess_relabund.jpg", combined_plot.2 , width = 12, height = 4 )
+
+```
+
+Calculate relative abundance per Site by Species and Life Stage
+```{r}
+
+relative_abundance <- data %>%
+  group_by(Site,Species) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  group_by(Site) %>%
+  mutate(Relative_Abundance = Count / sum(Count)) %>%
+  ungroup()
+
+# Calculate sample sizes and add to relative_abundance
+sample_sizes <- data %>%
+  group_by(Site) %>%
+  summarise(sample_size = n(), .groups = 'drop')
+
+# Join sample sizes with relative abundance data
+relative_abundance <- relative_abundance %>%
+  left_join(sample_sizes, by = "Site")
+
+relative_abundance <- relative_abundance %>%
+  left_join(sample.counts, by = "Site")
+
+
+relative_abundance$Site <- factor(relative_abundance$Site, levels = c("S18","S15","S14", "S12", "S11","S9",
+                                                                      "S6", "S5","S4", "S3", "S2","S1"))
+
+
+RA.plot <- ggplot(relative_abundance, aes(x = Site, y = Relative_Abundance, fill = Species)) +
+  geom_bar(stat = "identity", position = "stack") +  # Use stacked bars
+  geom_text(aes(label = sample_size, y = -0.06), 
+            color = "black", 
+            size = 2) +  # Adjust the size as needed
+  geom_text(aes(label = total, y = -0.02), 
+            color = "blue", 
+            size = 2) +  # Adjust the size as needed
+  labs(x = "Site",
+       y = "Relative Abundance") +
+  theme_minimal() +  # Clean theme
+  scale_y_continuous(labels = scales::percent) +  # Convert y-axis to percentage
+  scale_fill_manual(values = color_mapping) +  # Set the fill colors
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+  # Rotate x-axis labels for better visibility
+  coord_flip()+
+  theme(legend.position = "right")
+RA.plot 
+```
+
+<!-- Combine Map and Life Stage Specific Relative Abundance -->
+<!-- ```{r} -->
+
+<!-- # Combine the two plots and labels -->
+<!-- p1_label <- ggdraw() + draw_plot(MooreaSitemap) + draw_label("A)", x = 0.05, y = 0.97, size = 20, fontface = "bold") -->
+<!-- p2_label <- ggdraw() + draw_plot(RA.LS.plot) + draw_label("B)", x = 0.05, y = 0.97, size = 20, fontface = "bold") -->
+
+<!-- combined_plot <- grid.arrange(p1_label, p2_label, ncol = 2) -->
+
+
+<!-- # Save the combined plot -->
+<!-- ggsave("Output/Poc_RA_SiteMap.pdf", plot = combined_plot, width = 14, height = 6) -->
+<!-- ggsave("Output/Poc_RA_SiteMap.jpg", plot = combined_plot, width = 14, height = 6) -->
+
+
+<!-- ``` -->
+
+
+Combine Map and total Relative Abundance
+```{r}
+
+# Combine the two plots and labels
+p1_label <- ggdraw() + draw_plot(MooreaSitemap) + draw_label("A)", x = 0.05, y = 0.97, size = 20, fontface = "bold")
+p2_label <- ggdraw() + draw_plot(RA.plot) + draw_label("B)", x = 0.05, y = 0.97, size = 20, fontface = "bold")
+p3_label <- ggdraw() + draw_plot(RA.LS.plot) + draw_label("C)", x = 0.05, y = 0.97, size = 20, fontface = "bold")
+
+combined_plot.2 <- grid.arrange(p1_label, p2_label, ncol = 2)
+combined_plot.3 <- grid.arrange(p1_label, p2_label, p3_label, ncol = 3)
+
+
+# Save the combined plot
+ggsave("Output/Poc_RA_LifeStage_SiteMap.pdf", plot = combined_plot.2, width = 20, height = 6)
+ggsave("Output/Poc_RA_LifeStage_SiteMap.jpg", plot = combined_plot.2, width = 14, height = 6)
+
+
+```
+
+
+Density of Pocillopora
+```{r}
+
+sample.transect.counts <- all.data %>%
+  group_by(Site, Transect) %>%
+  summarise(total = n()) 
+sample.transect.counts 
+
+transect_counts <- all.data %>%
+  group_by(Site) %>%
+  summarise(num_transects = n_distinct(Transect))
+
+transect_counts <- left_join(transect_counts, sample.counts, by="Site")
+
+transect.area <- 50 #m2
+transect_counts$Poc.density <- transect_counts$total/ (transect_counts$num_transects * transect.area)
+str(transect_counts)
+
+ggplot(transect_counts, aes(x = Poc.density, y = Site)) +
+  geom_point()+
+  labs(title = "Density Plot of Poc Density by Site",
+       x = "Poc Density",
+       y = "Density") +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+```
+
+```{r}
+
+# making the script for the size frequency distribution by lifestage so size in my case. 
+# for that i will need size needs to be on the x axis
+#and frequency on the y axis
+#and you need to facet by site and you need a line for each site on each graph
+#so 11 graphs
+
+str(relative_abundance.LS)
+
+# Assuming your data is in a tibble called 'data'
+ggplot(relative_abundance.LS, aes(x = Site, y = Relative_Abundance, fill = LifeStage)) +
+  geom_bar(stat = "identity", position = "stack") +  # Stacked bar plot
+  facet_wrap(~ Species) +  # Facet by species to create separate plots
+  labs(title = "Size Frequency Distribution by LifeStage, Species, and Site", 
+       x = "Site", 
+       y = "Count") +
+  theme_minimal() +  # Clean theme
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for readability
+
+
+
+
+
+
+
+
+
+```
+
