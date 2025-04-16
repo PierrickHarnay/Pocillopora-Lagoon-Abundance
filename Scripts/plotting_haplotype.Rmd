@@ -61,6 +61,38 @@ size.data <- size.data %>%
 
 ```
 
+```{r}
+#code for plotting only the haplotype and not by species on the graph 
+sample.info <- read.csv("Data/sample.info.csv")
+
+data_h <- read.csv("Data/Haplotype_data.csv", na.strings = "NA")
+
+data_h <- left_join(data_h, sample.info, by="Sample.ID")
+
+
+# set the colors for plotting
+ cols.haplotype <- cbind.data.frame(Haplotype = factor(c("Haplotype 10",
+                                            "Haplotype 1a",
+                                            "Haplotype 3",
+                                             "P. grandis",
+                                             "Haplotype 2",
+                                             "Haplotype 11",
+                                           "Haplotype 5a",
+                                             "Haplotype 8a")),
+                          Color = c("#D55E00",
+                                  "#0072B2",
+                                   "#E69F00",
+                                   "#56B4E9",
+                                   "lightgreen",
+                                   "#009E73",
+                                   "#e63946",
+                                   "#CC79A7"))
+                                   
+# color_mapping <- setNames(cols.haplotype$Color, cols.haplotype$Haplotype)
+
+                                   
+color_mapping_h <- setNames(cols.haplotype$Color, cols.haplotype$Haplotype)
+```
 
 load abundance data
 ```{r}
@@ -112,14 +144,48 @@ color_mapping <- setNames(cols.species$Color, cols.species$Species)
 
 
 ```
+Join id and size and set size categories for ploting with haplotype
+```{r}
 
+colnames(data_h)
+colnames(size.data)
+
+
+
+data_h$Sample.ID <- as.integer(data_h$Sample.ID)
+
+
+data_h <- left_join(data_h, size.data, by = "Sample.ID")
+
+data_h <- data_h %>%
+  select(Sample.ID, Site.x, Transect.x,Haplotype, Average.Diameter.cm)
+
+colnames(data_h) <- c("Sample.ID", "Site", "Transect", "Haplotype", "Average.Diameter.cm")
+
+# Define the break points for the categories
+breaks <- c(0,1, 2,5, 14, Inf)  # Adjust these values as needed
+labels <- c("0-1cm", "1-2cm", ">2cm-5cm", ">5cm-14cm", ">14cm")  # Category labels
+
+# Create a new column for LifeStage based on Average.Diameter.cm
+data_h$LifeStage <- cut(data_h$Average.Diameter.cm, 
+                      breaks = breaks, 
+                      labels = labels, 
+                      right = FALSE)  # Use right=FALSE to make intervals [a, b)
+
+#removing the raw with NA for sizes because we don't have the pics to extract the data
+data_clean <- data_h %>%
+  filter(if_all(everything(), ~ !is.na(.)))
+
+
+
+```
 Join id and size and set size categories
 ```{r}
 
 colnames(data)
 colnames(size.data)
 
-data <- left_join (data, size.data, by="Sample.ID")
+
 
 data$Sample.ID <- as.integer(data$Sample.ID)
 
@@ -152,7 +218,7 @@ register_google(key = "AIzaSyAJHWQg-KMSzffFNWaO1zAakoBz-klFhIg") ### use your ow
 Moorea<-data.frame(lon = -149.83246425684064, lat = -17.531092816791094)
 
 #Map base
-M1<-get_map(Moorea,zoom = 12, maptype = 'satellite')
+#M1<-get_map(Moorea,zoom = 12, maptype = 'satellite')
 
 bbx <- c(left=-149.802,bottom= -17.480,right=-149.805,top=-17.475)
 x <- c(bbx["left"], bbx["left"], bbx["right"], bbx["right"])
@@ -177,6 +243,90 @@ MooreaSitemap
 
 
 ```
+```{r}
+#Calculate relative abundance per Site by haplotype and Life Stage
+
+
+data_h <- data_h %>%
+  filter(!is.na(Site) & !is.na(Haplotype))
+
+data_h  <- data_h %>%
+  filter(!Site=="NA") %>%
+  filter(!Haplotype=="NA") %>%
+  filter(!Sample.ID==3353)%>%
+  filter(!Sample.ID==3818)%>%
+  filter(!Sample.ID==3553)%>%
+  filter(!Sample.ID==449)%>%
+  filter(!Sample.ID==450)%>%
+  filter(!Sample.ID==518)%>%
+  filter(!Sample.ID==543)%>%
+  filter(!Sample.ID==598)%>%
+  filter(!Sample.ID==613)%>%
+  filter(!Sample.ID==614)%>%
+  filter(!Sample.ID==615)%>%
+  filter(!Sample.ID==617)%>%
+  filter(!Sample.ID==619)%>%
+  filter(!Sample.ID==675)%>%
+  filter(!Sample.ID==886)%>%
+  filter(!Sample.ID==888)%>%
+  filter(!Sample.ID==921)%>%
+  filter(!Sample.ID==976)%>%
+  filter(!Sample.ID==1124)%>%
+  filter(!Sample.ID==1419)%>%
+  filter(!Sample.ID==1838)%>%
+  filter(!Sample.ID==2030)%>%
+  filter(!Sample.ID==2071)%>%
+  filter(!Sample.ID==2232)%>%
+  filter(!Sample.ID==2459)%>%
+  filter(!Sample.ID==2573)%>%
+  filter(!Sample.ID==2979)%>%
+  filter(!Sample.ID==3111)%>%
+  filter(!Sample.ID==3122)%>%
+  filter(!Sample.ID==3129)%>%
+  filter(!Sample.ID==3139)%>%
+  filter(!Sample.ID==3154)%>%
+  filter(!Sample.ID==3258)%>%
+  filter(!Sample.ID==3325)
+  
+  
+relative_abundance.LS_h <- data_h %>%
+  group_by(Site, LifeStage, Haplotype) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  group_by(Site, LifeStage) %>%
+  mutate(Relative_Abundance = Count / sum(Count)) %>%
+  ungroup()
+
+relative_abundance.LS_h$ Site <- factor(relative_abundance.LS_h$Site, levels = c("S18","S15","S14", "S12", "S11","S9",
+                                                                      "S6", "S5","S4", "S3", "S2","S1"))
+
+relative_abundance.LS_h <-relative_abundance.LS_h %>%
+  filter(Site %in% c("S11", "S14", "S15", "S12", "S18", "S2", "S4", "S3", "S5" , "S6", "S9", "S1"))
+
+str(relative_abundance.LS_h)
+
+# Calculate sample size for each Site and LifeStage
+sample_sizes_h <- relative_abundance.LS_h %>%
+  group_by(Site, LifeStage) %>%
+  summarise(Sample_Size = sum(Count), .groups = "drop")
+
+RA.LS.plot_h <- ggplot(relative_abundance.LS_h, aes(x = Site, y = Relative_Abundance, fill = Haplotype)) +
+  geom_bar(stat = "identity", position = "fill") +
+  facet_wrap(~ LifeStage, ncol=5) +
+  labs(x = "Site",
+       y = "Relative Abundance") +
+  theme_minimal() +  # Clean theme
+  scale_y_continuous(labels = scales::percent) +  # Convert y-axis to percentage
+  scale_fill_manual(values = color_mapping_h) +  # Set the fill colors
+  theme_minimal() +
+  coord_flip()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top") +
+  # Add sample size text
+  geom_text(data = sample_sizes_h, aes(x = Site, y = 1.1, label = Sample_Size),inherit.aes = FALSE, size = 1, vjust = 0, color = "black")
+RA.LS.plot_h 
+
+ggsave("Output/relabund.bysize_haplotype.jpg", RA.LS.plot_h , width = 6, height = 4 )
+
+```
 
 Calculate relative abundance per Site by Species and Life Stage
 ```{r}
@@ -186,7 +336,38 @@ data  <- data %>%
   filter(!Species=="NA") %>%
   filter(!Sample.ID==3353)%>%
   filter(!Sample.ID==3818)%>%
-  filter(!Sample.ID==3553)
+  filter(!Sample.ID==3553)%>%
+  filter(!Sample.ID==449)%>%
+  filter(!Sample.ID==450)%>%
+  filter(!Sample.ID==518)%>%
+  filter(!Sample.ID==543)%>%
+  filter(!Sample.ID==598)%>%
+  filter(!Sample.ID==613)%>%
+  filter(!Sample.ID==614)%>%
+  filter(!Sample.ID==615)%>%
+  filter(!Sample.ID==617)%>%
+  filter(!Sample.ID==619)%>%
+  filter(!Sample.ID==675)%>%
+  filter(!Sample.ID==886)%>%
+  filter(!Sample.ID==888)%>%
+  filter(!Sample.ID==921)%>%
+  filter(!Sample.ID==976)%>%
+  filter(!Sample.ID==1124)%>%
+  filter(!Sample.ID==1419)%>%
+  filter(!Sample.ID==1838)%>%
+  filter(!Sample.ID==2030)%>%
+  filter(!Sample.ID==2071)%>%
+  filter(!Sample.ID==2232)%>%
+  filter(!Sample.ID==2459)%>%
+  filter(!Sample.ID==2573)%>%
+  filter(!Sample.ID==2979)%>%
+  filter(!Sample.ID==3111)%>%
+  filter(!Sample.ID==3122)%>%
+  filter(!Sample.ID==3129)%>%
+  filter(!Sample.ID==3139)%>%
+  filter(!Sample.ID==3154)%>%
+  filter(!Sample.ID==3258)%>%
+  filter(!Sample.ID==3325)
 
 relative_abundance.LS <- data %>%
   group_by(Site, LifeStage, Species) %>%
@@ -199,7 +380,7 @@ relative_abundance.LS$Site <- factor(relative_abundance.LS$Site, levels = c("S18
                                                                       "S6", "S5","S4", "S3", "S2","S1"))
 
 relative_abundance.LS <-relative_abundance.LS %>%
-  filter(Site %in% c("S11", "S14", "S15", "S12", "S18", "S2", "S4"))
+  filter(Site %in% c("S11", "S14", "S15", "S12", "S18", "S2", "S4", "S3", "S5" , "S6", "S9", "S1"))
 
 str(relative_abundance.LS)
 
@@ -211,16 +392,16 @@ sample_sizes <- relative_abundance.LS %>%
 RA.LS.plot <- ggplot(relative_abundance.LS, aes(x = Site, y = Relative_Abundance, fill = Species)) +
   geom_bar(stat = "identity", position = "fill") +
   facet_wrap(~ LifeStage, ncol=5) +
-  labs(x = "Site",
+  labs(x = "",
        y = "Relative Abundance") +
   theme_minimal() +  # Clean theme
   scale_y_continuous(labels = scales::percent) +  # Convert y-axis to percentage
   scale_fill_manual(values = color_mapping) +  # Set the fill colors
   theme_minimal() +
   coord_flip()+
-  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "right") +
   # Add sample size text
-  geom_text(data = sample_sizes, aes(x = Site, y = 1.1, label = Sample_Size),inherit.aes = FALSE, size = 2, vjust = 0, color = "black")
+  geom_text(data = sample_sizes, aes(x = Site, y = 1.1, label = Sample_Size),inherit.aes = FALSE, size = 1, vjust = 0, color = "black")
 RA.LS.plot 
 
 ggsave("Output/relabund.bysize.jpg", RA.LS.plot , width = 6, height = 4 )
@@ -258,10 +439,10 @@ RA.plot <- ggplot(relative_abundance, aes(x = Site, y = Relative_Abundance, fill
   geom_bar(stat = "identity", position = "stack") +  # Use stacked bars
   geom_text(aes(label = sample_size, y = -0.06), 
             color = "black", 
-            size = 2) +  # Adjust the size as needed
+            size = 1) +  # Adjust the size as needed
   geom_text(aes(label = total, y = -0.02), 
             color = "blue", 
-            size = 2) +  # Adjust the size as needed
+            size = 1) +  # Adjust the size as needed
   labs(x = "Site",
        y = "Relative Abundance") +
   theme_minimal() +  # Clean theme
@@ -269,7 +450,7 @@ RA.plot <- ggplot(relative_abundance, aes(x = Site, y = Relative_Abundance, fill
   scale_fill_manual(values = color_mapping) +  # Set the fill colors
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+  # Rotate x-axis labels for better visibility
   coord_flip()+
-  theme(legend.position = "right")
+  theme(legend.position = "")
 RA.plot 
 ```
 
@@ -340,30 +521,24 @@ ggplot(transect_counts, aes(x = Poc.density, y = Site)) +
 ```
 
 ```{r}
+#merge the relative abundnace graph with the relative abundnace per size for each site 
+#code generate with chatgpt and modifie. th plot are made with ggplot 
 
-# making the script for the size frequency distribution by lifestage so size in my case. 
-# for that i will need size needs to be on the x axis
-#and frequency on the y axis
-#and you need to facet by site and you need a line for each site on each graph
-#so 11 graphs
+library(patchwork)
 
-str(relative_abundance.LS)
+#combine two plots side by side 
+ RA.plot + RA.LS.plot  + plot_layout(ncol = 2)
 
-# Assuming your data is in a tibble called 'data'
-ggplot(relative_abundance.LS, aes(x = Site, y = Relative_Abundance, fill = LifeStage)) +
-  geom_bar(stat = "identity", position = "stack") +  # Stacked bar plot
-  facet_wrap(~ Species) +  # Facet by species to create separate plots
-  labs(title = "Size Frequency Distribution by LifeStage, Species, and Site", 
-       x = "Site", 
-       y = "Count") +
-  theme_minimal() +  # Clean theme
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for readability
+ RA.plot + RA.LS.plot + 
+  plot_layout(ncol = 2) +
+  plot_annotation(title = "Relative Abundance by site",
+                  tag_levels = )  
+combined_plot_site_size <- RA.plot + RA.LS.plot + 
+  plot_layout(ncol = 2) +
+  plot_annotation(title = "Relative Abundance by Species per site and size",
+                  tag_levels = )
 
-
-
-
-
-
+ggsave("Output/Relative_Abundance_Combined_site_size.jpg", combined_plot_site_size, width = 10, height = 5, dpi = 300)
 
 
 
