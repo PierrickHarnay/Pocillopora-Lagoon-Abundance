@@ -11,7 +11,8 @@ library(ggmap)
 #library(ggsn)
 library(gridExtra)
 library(cowplot)
-
+library(dplyr)
+library(tidyr)
 ```
 
 
@@ -543,4 +544,183 @@ ggsave("Output/Relative_Abundance_Combined_site_size.jpg", combined_plot_site_si
 
 
 ```
+
+#no we have a visual on what going on in the relative abundnace of the 6 sepcies of Pocillopora spp. per sizes and sites  
+#our next goal is to see 
+# -does site have the similar coral composition btw them?
+#- Does certain species dominate the site by their size? 
+#- 
+
+```{r}
+#let's make the pca to see all about our questions
+# Create wide format for PCA: one row per Site, one column per Species
+pca_data <- relative_abundance %>%
+  select(Site, Species, Relative_Abundance) %>%
+  pivot_wider(names_from = Species, values_from = Relative_Abundance, values_fill = 0)
+
+# Check result
+head(pca_data)
+
+# Keep site names for labeling
+site_labels <- pca_data$Site
+
+# Prepare matrix for PCA (remove site column)
+pca_matrix <- pca_data %>%
+  select(-Site) %>%
+  as.matrix()
+
+# Scale the data (standard practice in PCA)
+pca_scaled <- scale(pca_matrix)
+
+# Run PCA
+pca_result <- prcomp(pca_scaled, center = TRUE, scale. = TRUE)
+
+# View summary
+summary(pca_result)
+
+
+```
+
+```{r}
+#visualization of the PCA plot 
+# Create dataframe for plotting
+pca_scores <- as.data.frame(pca_result$x)
+pca_scores$Site <- site_labels
+
+# Plot PCA
+ggplot(pca_scores, aes(x = PC1, y = PC2, label = Site)) +
+  geom_point(aes(color = Site), size = 4) +
+  geom_text(vjust = -1.5, size = 3.5) +
+  labs(title = "PCA of Coral Species Composition by Site",
+       x = paste0("PC1 (", round(summary(pca_result)$importance[2,1]*100, 1), "% variance)"),
+       y = paste0("PC2 (", round(summary(pca_result)$importance[2,2]*100, 1), "% variance)")) +
+  theme_minimal()
+
+```
+```{r}
+# Hierarchical clustering
+dist_matrix <- dist(pca_scaled)
+hc <- hclust(dist_matrix)
+
+# Dendrogram
+plot(hc, labels = site_labels, main = "Clustering of Sites based on Species Composition")
+
+# K-means on PC1 and PC2
+set.seed(123)
+kmeans_result <- kmeans(pca_scores[,1:2], centers = 3)
+
+# Add cluster to PCA plot
+pca_scores$Cluster <- as.factor(kmeans_result$cluster)
+
+ggplot(pca_scores, aes(x = PC1, y = PC2, color = Cluster, label = Site)) +
+  geom_point(size = 4) +
+  geom_text(vjust = -1.2) +
+  labs(title = "PCA with K-Means Clustering") +
+  theme_minimal()
+
+```
+```{r}
+#running the permanova of the plot 
+library(vegan)
+
+# Use original unscaled matrix
+adonis_result <- adonis2(pca_matrix ~ site_labels, method = "euclidean")
+
+adonis_result
+
+```
+```{r}
+#now i want to try to see the answer of this questions: Does certain species dominate the site by their size? 
+ggplot(relative_abundance.LS, aes(x = LifeStage, y = Relative_Abundance, fill = Species)) +
+  geom_bar(stat = "identity", position = "fill") +
+  facet_wrap(~ Site, ncol = 4) +
+  labs(title = "Relative Abundance of Species by Size Class and Site",
+       x = "Size Class",
+       y = "Relative Abundance") +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(values = color_mapping) +
+  theme_minimal() +
+  theme(legend.position = "right",
+        axis.text.x = element_text(angle = 45, hjust = 1))
+
+#to look at a different way (table)
+dominant_species_table <- relative_abundance.LS %>%
+  group_by(Site, LifeStage) %>%
+  slice_max(Relative_Abundance, n = 1, with_ties = FALSE) %>%
+  select(Site, LifeStage, Species, Relative_Abundance)
+
+dominant_species_table
+
+```
+```{r}
+#filtering the dominant species that make up more than 70% of a size class at a site
+dominant_strong <- dominant_species_table %>%
+  filter(Relative_Abundance > 0.7)
+
+dominant_strong
+
+#this show us only the species that are truly dominating 
+```
+```{r}
+ggplot(relative_abundance.LS, aes(x = LifeStage, y = Relative_Abundance, color = Species, group = Species)) +
+  geom_line(size = 1.2) +
+  facet_wrap(~ Site, scales = "free_y") +
+  theme_minimal() +
+  labs(title = "Size Class Trends per Species Across Sites",
+       y = "Relative Abundance", x = "Size Class") +
+  scale_color_manual(values = color_mapping) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+```{r}
+#Prepare species-by-site matrix
+relative_abundance <- data %>%
+  group_by(Site, Species) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  group_by(Site) %>%
+  mutate(Relative_Abundance = Count / sum(Count)) %>%
+  ungroup()
+
+library(tidyr)
+
+species_matrix <- relative_abundance %>%
+  select(Site, Species, Relative_Abundance) %>%
+  pivot_wider(names_from = Species, values_from = Relative_Abundance, values_fill = 0) %>%
+  column_to_rownames("Site")  # set rownames to Site for PCA
+
+pca_result <- prcomp(species_matrix, scale. = TRUE)  # scale = TRUE standardizes variables
+summary(pca_result)
+
+library(ggfortify)
+
+autoplot(pca_result,
+         data = data.frame(Site = rownames(species_matrix)),
+         label = TRUE, label.size = 4,
+         colour = 'Site') +
+  theme_minimal() +
+  labs(title = "PCA of Pocillopora Species Composition by Site")
+
+library(factoextra)
+
+fviz_pca_biplot(pca_result,
+                repel = TRUE,
+                label = "var", # or "none", "var", "ind"
+                col.var = "black",
+                col.ind = "steelblue",
+                geom.ind = "point") +
+  labs(title = "PCA Biplot: Species Composition by Site")
+
+#adding at the analysis site + Sizeclass 
+size_species_matrix <- relative_abundance.LS %>%
+  group_by(Site, LifeStage, Species) %>%
+  summarise(Relative_Abundance = sum(Relative_Abundance), .groups = "drop") %>%
+  unite("Group", Site, LifeStage, sep = "_") %>%
+  pivot_wider(names_from = Species, values_from = Relative_Abundance, values_fill = 0) %>%
+  column_to_rownames("Group")
+
+pca_result_size <- prcomp(size_species_matrix, scale. = TRUE)
+fviz_pca_ind(pca_result_size, repel = TRUE)
+
+```
+
 
