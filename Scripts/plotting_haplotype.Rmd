@@ -555,8 +555,8 @@ ggsave("Output/Relative_Abundance_Combined_site_size.jpg", combined_plot_site_si
 #let's make the pca to see all about our questions
 # Create wide format for PCA: one row per Site, one column per Species
 pca_data <- relative_abundance %>%
-  select(Site, Species, Relative_Abundance) %>%
-  pivot_wider(names_from = Species, values_from = Relative_Abundance, values_fill = 0)
+  select(Site, Haplotype, Relative_Abundance) %>%
+  pivot_wider(names_from = Haplotype, values_from = Relative_Abundance, values_fill = 0)
 
 # Check result
 head(pca_data)
@@ -661,17 +661,61 @@ dominant_strong
 
 #this show us only the species that are truly dominating 
 ```
+
+#site frequency plot 
 ```{r}
-ggplot(relative_abundance.LS, aes(x = LifeStage, y = Relative_Abundance, color = Species, group = Species)) +
-  geom_line(size = 1.2) +
-  facet_wrap(~ Site, scales = "free_y") +
-  theme_minimal() +
-  labs(title = "Size Class Trends per Species Across Sites",
-       y = "Relative Abundance", x = "Size Class") +
-  scale_color_manual(values = color_mapping) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+#ggplot(data_h, aes(x = Average.Diameter.cm, y = Count, color = Species, group = Haplotype)) +
+#  geom_line(size = 1.2) +
+#  facet_wrap(~ Site, scales = "free_y") +
+#  theme_minimal() +
+#  labs(title = "Size Class Trends per Species Across Sites",
+#       y = "Count", x = "Size Class") +
+#  scale_color_manual(values = color_mapping) +
+#  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Create named color vector for mapping
+color_mapping_h <- setNames(cols.haplotype$Color, cols.haplotype$Haplotype)
+
+
+# Plot with custom colors
+frequency <- ggplot(data_h, aes(x = Average.Diameter.cm, colour = Haplotype, fill = Haplotype)) +
+  geom_freqpoly(bins = 10) +
+  facet_wrap(~Site, ncol = 3) +
+  scale_color_manual(values = color_mapping_h) +  # apply your color mapping
+  scale_fill_manual(values = color_mapping_h) +   # apply for fill (if needed)
+  theme_bw()
+
+frequency
+ggsave("Output/Relative_Abundance_haplotype_frequency.jpg", frequency, width = 10, height = 5, dpi = 300)
+
+#pretty version of the graph bellow 
+frequency_p <- ggplot(data_h, aes(x = Average.Diameter.cm, colour = Haplotype)) +
+  geom_freqpoly(bins = 10, size = 1.2) +  # Thicker lines for visibility
+  facet_wrap(~Site, ncol = 3, scales = "free_y") +  # Adjust y-axis per site
+  scale_color_manual(values = color_mapping_h, name = "Haplotype") +
+  labs(
+    title = "Size Frequency of Pocillopora Haplotypes by Site",
+    subtitle = "Based on Average Colony Diameter",
+    x = "Average Diameter (cm)",
+    y = "Frequency"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    strip.text = element_text(face = "bold", size = 10),  # Facet titles
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 12),
+    legend.position = "bottom",
+    legend.title = element_text(size = 11),
+    legend.text = element_text(size = 9),
+    panel.grid.minor = element_blank()  # Clean up minor grid lines
+  )
+
+frequency_p
+ggsave("Output/Relative_Abundance_haplotype_frequency_p.jpg", frequency_p, width = 10, height = 5, dpi = 300)
 
 ```
+
+
 ```{r}
 #Prepare species-by-site matrix
 relative_abundance <- data %>%
@@ -720,6 +764,10 @@ size_species_matrix <- relative_abundance.LS %>%
 
 pca_result_size <- prcomp(size_species_matrix, scale. = TRUE)
 fviz_pca_ind(pca_result_size, repel = TRUE)
+
+```
+#site frequency 
+```{r}
 
 ```
 
