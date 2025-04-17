@@ -321,7 +321,7 @@ RA.LS.plot_h <- ggplot(relative_abundance.LS_h, aes(x = Site, y = Relative_Abund
   coord_flip()+
   theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top") +
   # Add sample size text
-  geom_text(data = sample_sizes_h, aes(x = Site, y = 1.1, label = Sample_Size),inherit.aes = FALSE, size = 1, vjust = 0, color = "black")
+  geom_text(data = sample_sizes_h, aes(x = Site, y = 1.1, label = Sample_Size),inherit.aes = FALSE, size = 2, vjust = 0, color = "black")
 RA.LS.plot_h 
 
 ggsave("Output/relabund.bysize_haplotype.jpg", RA.LS.plot_h , width = 6, height = 4 )
