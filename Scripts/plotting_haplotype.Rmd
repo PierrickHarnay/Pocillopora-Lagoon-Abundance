@@ -690,7 +690,8 @@ ggsave("Output/Relative_Abundance_haplotype_frequency.jpg", frequency, width = 1
 
 #pretty version of the graph bellow 
 frequency_p <- ggplot(data_h, aes(x = Average.Diameter.cm, colour = Haplotype)) +
-  geom_freqpoly(bins = 10, size = 1.2) +  # Thicker lines for visibility
+  geom_freqpoly(bins = 10, size = 1.2) +
+  xlim(0, NA)+ # Thicker lines for visibility
   facet_wrap(~Site, ncol = 3, scales = "free_y") +  # Adjust y-axis per site
   scale_color_manual(values = color_mapping_h, name = "Haplotype") +
   labs(
