@@ -335,40 +335,40 @@ Calculate relative abundance per Site by Species and Life Stage
 data  <- data %>%
   filter(!Site=="NA") %>%
   filter(!Species=="NA") %>%
-  filter(!Sample.ID==3353)%>%
-  filter(!Sample.ID==3818)%>%
-  filter(!Sample.ID==3553)%>%
-  filter(!Sample.ID==449)%>%
-  filter(!Sample.ID==450)%>%
-  filter(!Sample.ID==518)%>%
-  filter(!Sample.ID==543)%>%
-  filter(!Sample.ID==598)%>%
-  filter(!Sample.ID==613)%>%
-  filter(!Sample.ID==614)%>%
-  filter(!Sample.ID==615)%>%
-  filter(!Sample.ID==617)%>%
-  filter(!Sample.ID==619)%>%
-  filter(!Sample.ID==675)%>%
-  filter(!Sample.ID==886)%>%
-  filter(!Sample.ID==888)%>%
-  filter(!Sample.ID==921)%>%
-  filter(!Sample.ID==976)%>%
-  filter(!Sample.ID==1124)%>%
-  filter(!Sample.ID==1419)%>%
-  filter(!Sample.ID==1838)%>%
-  filter(!Sample.ID==2030)%>%
-  filter(!Sample.ID==2071)%>%
-  filter(!Sample.ID==2232)%>%
-  filter(!Sample.ID==2459)%>%
-  filter(!Sample.ID==2573)%>%
-  filter(!Sample.ID==2979)%>%
-  filter(!Sample.ID==3111)%>%
-  filter(!Sample.ID==3122)%>%
-  filter(!Sample.ID==3129)%>%
-  filter(!Sample.ID==3139)%>%
-  filter(!Sample.ID==3154)%>%
-  filter(!Sample.ID==3258)%>%
-  filter(!Sample.ID==3325)
+ # filter(!Sample.ID==3353)%>% #all good
+#  filter(!Sample.ID==3818)%>% #all good
+  filter(!Sample.ID==3553)%>% #no pics so no size 
+  filter(!Sample.ID==449)%>% #no pics but can be fix 
+  #filter(!Sample.ID==450)%>% #everything ok
+  filter(!Sample.ID==518)%>% #no pics
+  filter(!Sample.ID==543)%>% #no pics
+  filter(!Sample.ID==598)%>% #no pics
+  filter(!Sample.ID==613)%>% #no pics
+  filter(!Sample.ID==614)%>% #no pics
+  filter(!Sample.ID==615)%>% #no pics
+  filter(!Sample.ID==617)%>% #no pics
+  filter(!Sample.ID==619)%>% #no pics
+  filter(!Sample.ID==675)%>% #no pics
+  filter(!Sample.ID==886)%>% #no pics
+  filter(!Sample.ID==888)%>% #no pics
+  filter(!Sample.ID==921)%>% #no pics
+  filter(!Sample.ID==976)%>% #no pics
+  filter(!Sample.ID==1124)%>% #no pics
+  filter(!Sample.ID==1419)%>% #no pics but chance to get it 
+  filter(!Sample.ID==1838)%>% #no pics
+  filter(!Sample.ID==2030)%>% #no pics
+ # filter(!Sample.ID==2071)%>% #all good
+  filter(!Sample.ID==2232)%>% #no pics
+  filter(!Sample.ID==2459)%>% #no pics
+  filter(!Sample.ID==2573)%>% #no pics
+ # filter(!Sample.ID==2979)%>% #all good
+  #filter(!Sample.ID==3111)%>% #all good
+#  filter(!Sample.ID==3122)%>% #all good
+  filter(!Sample.ID==3129)%>% #we have the pic and size but not the sequence (sequence fail)
+ # filter(!Sample.ID==3139)%>% #all good
+  filter(!Sample.ID==3154)%>% #no pics
+#  filter(!Sample.ID==3258)%>% #all good
+  filter(!Sample.ID==3325) #no pics
 
 relative_abundance.LS <- data %>%
   group_by(Site, LifeStage, Species) %>%
@@ -709,7 +709,7 @@ frequency_p <- ggplot(data_h, aes(x = Average.Diameter.cm, colour = Haplotype)) 
     legend.title = element_text(size = 11),
     legend.text = element_text(size = 9),
     panel.grid.minor = element_blank()  # Clean up minor grid lines
-  )
+  ) 
 
 frequency_p
 ggsave("Output/Relative_Abundance_haplotype_frequency_p.jpg", frequency_p, width = 10, height = 5, dpi = 300)
