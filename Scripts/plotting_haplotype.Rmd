@@ -335,11 +335,11 @@ Calculate relative abundance per Site by Species and Life Stage
 data  <- data %>%
   filter(!Site=="NA") %>%
   filter(!Species=="NA") %>%
- # filter(!Sample.ID==3353)%>% #all good
-#  filter(!Sample.ID==3818)%>% #all good
+  filter(!Sample.ID==3353)%>% #all good
+ filter(!Sample.ID==3818)%>% #all good
   filter(!Sample.ID==3553)%>% #no pics so no size 
   filter(!Sample.ID==449)%>% #no pics but can be fix 
-  #filter(!Sample.ID==450)%>% #everything ok
+  filter(!Sample.ID==450)%>% #everything ok
   filter(!Sample.ID==518)%>% #no pics
   filter(!Sample.ID==543)%>% #no pics
   filter(!Sample.ID==598)%>% #no pics
@@ -357,14 +357,14 @@ data  <- data %>%
   filter(!Sample.ID==1419)%>% #no pics but chance to get it 
   filter(!Sample.ID==1838)%>% #no pics
   filter(!Sample.ID==2030)%>% #no pics
- # filter(!Sample.ID==2071)%>% #all good
+  filter(!Sample.ID==2071)%>% #all good
   filter(!Sample.ID==2232)%>% #no pics
   filter(!Sample.ID==2459)%>% #no pics
   filter(!Sample.ID==2573)%>% #no pics
- # filter(!Sample.ID==2979)%>% #all good
-  #filter(!Sample.ID==3111)%>% #all good
-#  filter(!Sample.ID==3122)%>% #all good
-  filter(!Sample.ID==3129)%>% #we have the pic and size but not the sequence (sequence fail)
+  filter(!Sample.ID==2979)%>% #all good
+  filter(!Sample.ID==3111)%>% #all good
+ filter(!Sample.ID==3122)%>% #all good
+ filter(!Sample.ID==3129)%>% #we have the pic and size but not the sequence (sequence fail)
  # filter(!Sample.ID==3139)%>% #all good
   filter(!Sample.ID==3154)%>% #no pics
 #  filter(!Sample.ID==3258)%>% #all good
