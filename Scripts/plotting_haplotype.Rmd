@@ -335,6 +335,7 @@ Calculate relative abundance per Site by Species and Life Stage
 data  <- data %>%
   filter(!Site=="NA") %>%
   filter(!Species=="NA") %>%
+   filter(!LifeStage=="NA")%>%
   filter(!Sample.ID==3353)%>% #all good
  filter(!Sample.ID==3818)%>% #all good
   filter(!Sample.ID==3553)%>% #no pics so no size 
@@ -369,7 +370,8 @@ data  <- data %>%
   filter(!Sample.ID==3154)%>% #no pics
 #  filter(!Sample.ID==3258)%>% #all good
   filter(!Sample.ID==3325) #no pics
-
+ 
+ 
 relative_abundance.LS <- data %>%
   group_by(Site, LifeStage, Species) %>%
   summarise(Count = n(), .groups = 'drop') %>%
@@ -438,12 +440,12 @@ relative_abundance$Site <- factor(relative_abundance$Site, levels = c("S18","S15
 
 RA.plot <- ggplot(relative_abundance, aes(x = Site, y = Relative_Abundance, fill = Species)) +
   geom_bar(stat = "identity", position = "stack") +  # Use stacked bars
-  geom_text(aes(label = sample_size, y = -0.06), 
+  geom_text(aes(label = sample_size, y = -0.10), 
             color = "black", 
-            size = 1) +  # Adjust the size as needed
+            size = 2.5) +  # Adjust the size as needed
   geom_text(aes(label = total, y = -0.02), 
             color = "blue", 
-            size = 1) +  # Adjust the size as needed
+            size = 2.5) +  # Adjust the size as needed
   labs(x = "Site",
        y = "Relative Abundance") +
   theme_minimal() +  # Clean theme
@@ -453,6 +455,8 @@ RA.plot <- ggplot(relative_abundance, aes(x = Site, y = Relative_Abundance, fill
   coord_flip()+
   theme(legend.position = "")
 RA.plot 
+
+ggsave("Output/relabund.bysite.jpg", RA.plot , width = 6, height = 4 )
 ```
 
 <!-- Combine Map and Life Stage Specific Relative Abundance -->
