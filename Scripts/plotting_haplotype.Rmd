@@ -404,7 +404,7 @@ RA.LS.plot <- ggplot(relative_abundance.LS, aes(x = Site, y = Relative_Abundance
   coord_flip()+
   theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "right") +
   # Add sample size text
-  geom_text(data = sample_sizes, aes(x = Site, y = 1.1, label = Sample_Size),inherit.aes = FALSE, size = 1, vjust = 0, color = "black")
+  geom_text(data = sample_sizes, aes(x = Site, y = 1.1, label = Sample_Size),inherit.aes = FALSE, size = 1.5, vjust = 0, color = "black")
 RA.LS.plot 
 
 ggsave("Output/relabund.bysize.jpg", RA.LS.plot , width = 6, height = 4 )
@@ -442,10 +442,10 @@ RA.plot <- ggplot(relative_abundance, aes(x = Site, y = Relative_Abundance, fill
   geom_bar(stat = "identity", position = "stack") +  # Use stacked bars
   geom_text(aes(label = sample_size, y = -0.10), 
             color = "black", 
-            size = 2.5) +  # Adjust the size as needed
+            size = 1.5) +  # Adjust the size as needed
   geom_text(aes(label = total, y = -0.02), 
             color = "blue", 
-            size = 2.5) +  # Adjust the size as needed
+            size = 1.5) +  # Adjust the size as needed
   labs(x = "Site",
        y = "Relative Abundance") +
   theme_minimal() +  # Clean theme
