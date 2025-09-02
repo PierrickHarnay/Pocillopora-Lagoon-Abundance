@@ -442,10 +442,10 @@ RA.plot <- ggplot(relative_abundance, aes(x = Site, y = Relative_Abundance, fill
   geom_bar(stat = "identity", position = "stack") +  # Use stacked bars
   geom_text(aes(label = sample_size, y = -0.10), 
             color = "black", 
-            size = 1.5) +  # Adjust the size as needed
+            size = 2) +  # Adjust the size as needed
   geom_text(aes(label = total, y = -0.02), 
             color = "blue", 
-            size = 1.5) +  # Adjust the size as needed
+            size = 2) +  # Adjust the size as needed
   labs(x = "Site",
        y = "Relative Abundance") +
   theme_minimal() +  # Clean theme
