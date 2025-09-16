@@ -13,6 +13,9 @@ library(gridExtra)
 library(cowplot)
 library(dplyr)
 library(tidyr)
+library(vegan)
+library(ggrepel)
+
 ```
 
 
@@ -213,13 +216,13 @@ data$LifeStage <- cut(data$Average.Diameter.cm,
 
 Moorea site map
 ```{r}
-register_google(key = "AIzaSyAJHWQg-KMSzffFNWaO1zAakoBz-klFhIg") ### use your own API
+register_google(key = "AIzaSyBZdfwg7iNsfLNu9raT7xG3Gb8nP1VNIPM") ### use your own API
 
 # location
 Moorea<-data.frame(lon = -149.83246425684064, lat = -17.531092816791094)
 
 #Map base
-#M1<-get_map(Moorea,zoom = 12, maptype = 'satellite')
+M1<-get_map(Moorea,zoom = 12, maptype = 'satellite')
 
 bbx <- c(left=-149.802,bottom= -17.480,right=-149.805,top=-17.475)
 x <- c(bbx["left"], bbx["left"], bbx["right"], bbx["right"])
@@ -404,7 +407,7 @@ RA.LS.plot <- ggplot(relative_abundance.LS, aes(x = Site, y = Relative_Abundance
   coord_flip()+
   theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "right") +
   # Add sample size text
-  geom_text(data = sample_sizes, aes(x = Site, y = 1.1, label = Sample_Size),inherit.aes = FALSE, size = 1.5, vjust = 0, color = "black")
+  geom_text(data = sample_sizes, aes(x = Site, y = 1.1, label = Sample_Size),inherit.aes = FALSE, size = 1, vjust = 0, color = "black")
 RA.LS.plot 
 
 ggsave("Output/relabund.bysize.jpg", RA.LS.plot , width = 6, height = 4 )
@@ -442,10 +445,10 @@ RA.plot <- ggplot(relative_abundance, aes(x = Site, y = Relative_Abundance, fill
   geom_bar(stat = "identity", position = "stack") +  # Use stacked bars
   geom_text(aes(label = sample_size, y = -0.10), 
             color = "black", 
-            size = 2) +  # Adjust the size as needed
+            size = 1.5) +  # Adjust the size as needed
   geom_text(aes(label = total, y = -0.02), 
             color = "blue", 
-            size = 2) +  # Adjust the size as needed
+            size = 1.5) +  # Adjust the size as needed
   labs(x = "Site",
        y = "Relative Abundance") +
   theme_minimal() +  # Clean theme
@@ -551,76 +554,20 @@ ggsave("Output/Relative_Abundance_Combined_site_size.jpg", combined_plot_site_si
 
 #no we have a visual on what going on in the relative abundnace of the 6 sepcies of Pocillopora spp. per sizes and sites  
 #our next goal is to see 
-# -does site have the similar coral composition btw them?
+#  Does site have the similar coral composition btw them?
 #- Does certain species dominate the site by their size? 
 #- 
 
 ```{r}
-#let's make the pca to see all about our questions
-# Create wide format for PCA: one row per Site, one column per Species
-pca_data <- relative_abundance %>%
-  select(Site, Haplotype, Relative_Abundance) %>%
-  pivot_wider(names_from = Haplotype, values_from = Relative_Abundance, values_fill = 0)
-
-# Check result
-head(pca_data)
-
-# Keep site names for labeling
-site_labels <- pca_data$Site
-
-# Prepare matrix for PCA (remove site column)
-pca_matrix <- pca_data %>%
-  select(-Site) %>%
-  as.matrix()
-
-# Scale the data (standard practice in PCA)
-pca_scaled <- scale(pca_matrix)
-
-# Run PCA
-pca_result <- prcomp(pca_scaled, center = TRUE, scale. = TRUE)
-
-# View summary
-summary(pca_result)
-
 
 ```
 
 ```{r}
-#visualization of the PCA plot 
-# Create dataframe for plotting
-pca_scores <- as.data.frame(pca_result$x)
-pca_scores$Site <- site_labels
 
-# Plot PCA
-ggplot(pca_scores, aes(x = PC1, y = PC2, label = Site)) +
-  geom_point(aes(color = Site), size = 4) +
-  geom_text(vjust = -1.5, size = 3.5) +
-  labs(title = "PCA of Coral Species Composition by Site",
-       x = paste0("PC1 (", round(summary(pca_result)$importance[2,1]*100, 1), "% variance)"),
-       y = paste0("PC2 (", round(summary(pca_result)$importance[2,2]*100, 1), "% variance)")) +
-  theme_minimal()
 
 ```
 ```{r}
-# Hierarchical clustering
-dist_matrix <- dist(pca_scaled)
-hc <- hclust(dist_matrix)
 
-# Dendrogram
-plot(hc, labels = site_labels, main = "Clustering of Sites based on Species Composition")
-
-# K-means on PC1 and PC2
-set.seed(123)
-kmeans_result <- kmeans(pca_scores[,1:2], centers = 3)
-
-# Add cluster to PCA plot
-pca_scores$Cluster <- as.factor(kmeans_result$cluster)
-
-ggplot(pca_scores, aes(x = PC1, y = PC2, color = Cluster, label = Site)) +
-  geom_point(size = 4) +
-  geom_text(vjust = -1.2) +
-  labs(title = "PCA with K-Means Clustering") +
-  theme_minimal()
 
 ```
 ```{r}
@@ -634,36 +581,11 @@ adonis_result
 
 ```
 ```{r}
-#now i want to try to see the answer of this questions: Does certain species dominate the site by their size? 
-ggplot(relative_abundance.LS, aes(x = LifeStage, y = Relative_Abundance, fill = Species)) +
-  geom_bar(stat = "identity", position = "fill") +
-  facet_wrap(~ Site, ncol = 4) +
-  labs(title = "Relative Abundance of Species by Size Class and Site",
-       x = "Size Class",
-       y = "Relative Abundance") +
-  scale_y_continuous(labels = scales::percent) +
-  scale_fill_manual(values = color_mapping) +
-  theme_minimal() +
-  theme(legend.position = "right",
-        axis.text.x = element_text(angle = 45, hjust = 1))
 
-#to look at a different way (table)
-dominant_species_table <- relative_abundance.LS %>%
-  group_by(Site, LifeStage) %>%
-  slice_max(Relative_Abundance, n = 1, with_ties = FALSE) %>%
-  select(Site, LifeStage, Species, Relative_Abundance)
-
-dominant_species_table
 
 ```
 ```{r}
-#filtering the dominant species that make up more than 70% of a size class at a site
-dominant_strong <- dominant_species_table %>%
-  filter(Relative_Abundance > 0.7)
 
-dominant_strong
-
-#this show us only the species that are truly dominating 
 ```
 
 #site frequency plot 
@@ -722,58 +644,52 @@ ggsave("Output/Relative_Abundance_haplotype_frequency_p.jpg", frequency_p, width
 
 
 ```{r}
-#Prepare species-by-site matrix
-relative_abundance <- data %>%
-  group_by(Site, Species) %>%
-  summarise(Count = n(), .groups = 'drop') %>%
-  group_by(Site) %>%
-  mutate(Relative_Abundance = Count / sum(Count)) %>%
-  ungroup()
-
-library(tidyr)
-
-species_matrix <- relative_abundance %>%
-  select(Site, Species, Relative_Abundance) %>%
-  pivot_wider(names_from = Species, values_from = Relative_Abundance, values_fill = 0) %>%
-  column_to_rownames("Site")  # set rownames to Site for PCA
-
-pca_result <- prcomp(species_matrix, scale. = TRUE)  # scale = TRUE standardizes variables
-summary(pca_result)
-
-library(ggfortify)
-
-autoplot(pca_result,
-         data = data.frame(Site = rownames(species_matrix)),
-         label = TRUE, label.size = 4,
-         colour = 'Site') +
-  theme_minimal() +
-  labs(title = "PCA of Pocillopora Species Composition by Site")
-
-library(factoextra)
-
-fviz_pca_biplot(pca_result,
-                repel = TRUE,
-                label = "var", # or "none", "var", "ind"
-                col.var = "black",
-                col.ind = "steelblue",
-                geom.ind = "point") +
-  labs(title = "PCA Biplot: Species Composition by Site")
-
-#adding at the analysis site + Sizeclass 
-size_species_matrix <- relative_abundance.LS %>%
-  group_by(Site, LifeStage, Species) %>%
-  summarise(Relative_Abundance = sum(Relative_Abundance), .groups = "drop") %>%
-  unite("Group", Site, LifeStage, sep = "_") %>%
-  pivot_wider(names_from = Species, values_from = Relative_Abundance, values_fill = 0) %>%
-  column_to_rownames("Group")
-
-pca_result_size <- prcomp(size_species_matrix, scale. = TRUE)
-fviz_pca_ind(pca_result_size, repel = TRUE)
 
 ```
-#site frequency 
+#PCA of species per site 
 ```{r}
+#I want to visualize the PCA in 4 differents way, meaning one PCA per size class
+#first we need to create 4 differents datafile where the size as been subset 
+#creation of the dataset 
 
+Class_0_2_cm <- subset(relative_abundance.LS, LifeStage == "0-2cm")
+Class_2_5_cm <- subset(relative_abundance.LS, LifeStage == ">2cm-5cm")
+Class_5_14_cm <- subset(relative_abundance.LS, LifeStage == ">5cm-14cm")
+Class_14_cm <- subset(relative_abundance.LS, LifeStage == ">14cm")
+
+#create site x species matrix 
+mat_0_2_cm <- with(Class_0_2_cm, tapply(Relative_Abundance, list(Site, Species), sum, na.rm=TRUE))
+
+#removing the NA in the data set
+mat_0_2_cm[is.na(mat_0_2_cm)] <- 0
+
+#doing tranformation with Hellinger because we have a relative abundance 
+mat_0_2_cm.hel <- decostand(mat_0_2_cm, method="hellinger")
+
+#PCA
+pca1_0_2_cm <- rda(mat_0_2_cm.hel)
+
+#ploting PCA 
+plot(pca1_0_2_cm, display="sites", type="n")  # empty plot
+points(pca1_0_2_cm, display="sites", pch=21, bg="lightblue", cex=1.2)
+text(pca1_0_2_cm, display="species", col="red", cex=0.8)
+
+#test with class_5_14_cm
+mat_5_14_cm <- with(Class_5_14_cm, tapply(Relative_Abundance, list(Site, Species), sum, na.rm=TRUE))
+
+#removing the NA in the data set
+mat_5_14_cm[is.na(mat_5_14_cm)] <- 0
+
+#doing tranformation with Hellinger because we have a relative abundance 
+mat_5_14_cm.hel <- decostand(mat_5_14_cm, method="hellinger")
+
+#PCA
+pca1_5_14_cm <- rda(mat_5_14_cm.hel)
+
+#ploting PCA 
+plot(pca1_5_14_cm, display="sites", type="n")  # empty plot
+points(pca1_5_14_cm, display="sites", pch=21, bg="lightblue", cex=1.2)
+text(pca1_5_14_cm, display="species", col="red", cex=0.8)
 ```
 
 
