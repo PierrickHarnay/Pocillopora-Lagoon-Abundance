@@ -648,48 +648,88 @@ ggsave("Output/Relative_Abundance_haplotype_frequency_p.jpg", frequency_p, width
 ```
 #PCA of species per site 
 ```{r}
-#I want to visualize the PCA in 4 differents way, meaning one PCA per size class
-#first we need to create 4 differents datafile where the size as been subset 
-#creation of the dataset 
+#Reshaping the data for the PCA
+#Aggregate relative abundance by Site and Species
+data_RA <- relative_abundance.LS %>%
+  group_by(Site, Species) %>%
+  summarise(RelAbundance = sum(Relative_Abundance), .groups = "drop") %>%
+  pivot_wider(names_from = Species, values_from = RelAbundance, values_fill = 0)
 
-Class_0_2_cm <- subset(relative_abundance.LS, LifeStage == "0-2cm")
-Class_2_5_cm <- subset(relative_abundance.LS, LifeStage == ">2cm-5cm")
-Class_5_14_cm <- subset(relative_abundance.LS, LifeStage == ">5cm-14cm")
-Class_14_cm <- subset(relative_abundance.LS, LifeStage == ">14cm")
+# Check
+head(data_RA)
 
-#create site x species matrix 
-mat_0_2_cm <- with(Class_0_2_cm, tapply(Relative_Abundance, list(Site, Species), sum, na.rm=TRUE))
+# Extract matrix of species abundances
+abundance_matrix <- data_RA %>% select(-Site)
 
-#removing the NA in the data set
-mat_0_2_cm[is.na(mat_0_2_cm)] <- 0
+# Run PCA using vegan
+pca_RA <- rda(abundance_matrix, scale = TRUE)  # scaling is usually recommended
+summary(pca_RA)
 
-#doing tranformation with Hellinger because we have a relative abundance 
-mat_0_2_cm.hel <- decostand(mat_0_2_cm, method="hellinger")
+# Basic biplot
+biplot(pca_RA, scaling = 2)  # scaling 2: emphasizes distances between sites
 
-#PCA
-pca1_0_2_cm <- rda(mat_0_2_cm.hel)
+# Or using ggplot for a nicer plot
+pca_scores <- scores(pca_RA, display = "sites") %>% as.data.frame()
+pca_scores$Site <- data_RA$Site
 
-#ploting PCA 
-plot(pca1_0_2_cm, display="sites", type="n")  # empty plot
-points(pca1_0_2_cm, display="sites", pch=21, bg="lightblue", cex=1.2)
-text(pca1_0_2_cm, display="species", col="red", cex=0.8)
+species_scores <- scores(pca_RA, display = "species") %>% as.data.frame()
+species_scores$Species <- rownames(species_scores)
+########
 
-#test with class_5_14_cm
-mat_5_14_cm <- with(Class_5_14_cm, tapply(Relative_Abundance, list(Site, Species), sum, na.rm=TRUE))
+# Assuming your data is already in wide format
+abundance_matrix <- data_RA %>% select(-Site)
 
-#removing the NA in the data set
-mat_5_14_cm[is.na(mat_5_14_cm)] <- 0
+# PCA
+pca <- rda(abundance_matrix, scale = TRUE)
 
-#doing tranformation with Hellinger because we have a relative abundance 
-mat_5_14_cm.hel <- decostand(mat_5_14_cm, method="hellinger")
+# Site scores
+site_scores <- scores(pca, display = "sites") %>% as.data.frame()
+site_scores$Site <- data_RA$Site
 
-#PCA
-pca1_5_14_cm <- rda(mat_5_14_cm.hel)
+# Species scores
+species_scores <- scores(pca, display = "species") %>% as.data.frame()
+species_scores$Species <- rownames(species_scores)
 
-#ploting PCA 
-plot(pca1_5_14_cm, display="sites", type="n")  # empty plot
-points(pca1_5_14_cm, display="sites", pch=21, bg="lightblue", cex=1.2)
-text(pca1_5_14_cm, display="species", col="red", cex=0.8)
+# Make sure your species color vector is named:
+# cols.species <- c("Species1"="#1f77b4", "Species2"="#ff7f0e", ...)
+
+# Add color column to species_scores
+species_scores$color <- cols.species[species_scores$Species]
+
+###########
+ggplot() +
+  geom_point(data = pca_scores, aes(x = PC1, y = PC2, color = Site), size = 3) +
+  geom_text(data = species_scores, aes(x = PC1, y = PC2, label = Species), color = "black", alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "PCA of Sites by Species", x = "PC1", y = "PC2")
+
+ggplot() +
+  # Sites as points with different shapes
+  geom_point(data = site_scores, 
+             aes(x = PC1, y = PC2, shape = Site), 
+             size = 3) +
+  
+  # Species as arrows
+  geom_segment(data = species_scores,
+               aes(x = 0, y = 0, xend = PC1, yend = PC2, color = cols.species),
+               arrow = arrow(length = unit(0.3, "cm")), alpha = 0.8) +
+  
+  # Optionally, label species at arrow tips
+  geom_text(data = species_scores, 
+            aes(x = PC1*1.1, y = PC2*1.1, label = Species, color = cols.species),
+            size = 3, hjust = 0.5, vjust = 0.5) +
+  
+  # Use your species color panel
+  scale_color_manual(values = cols.species) +
+  
+  theme_minimal() +
+  labs(title = "PCA of Sites by Species",
+       x = "PC1", y = "PC2") +
+  theme(legend.position = "right")
+
+
+
+
 ```
 
 
