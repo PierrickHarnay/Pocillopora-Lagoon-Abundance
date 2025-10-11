@@ -728,13 +728,16 @@ PCA_Species_site <- ggplot() +
        x = "PC1", y = "PC2") +
   theme(legend.position = "none")
 
+PCA_Species_site
+ggsave("Output/PCA_Species_site.png", PCA_Species_site,
+       width = 10, height = 8, dpi = 300)
 ```
 ```{r}
 #ploting the data with the different class size 
 run_pca_plot <- function(relative_abundance.LS, stage_name) 
   
 #Aggregate relative abundance by Site and Species
-  data_stage <- relative_abundance.LS %>%
+data_stage <- relative_abundance.LS %>%
     group_by(Site, Species) %>%
     summarise(RelAbundance = sum(Relative_Abundance), .groups = "drop") %>%
     pivot_wider(names_from = Species, values_from = RelAbundance, values_fill = 0)
@@ -767,7 +770,7 @@ ggplot() +
               size = 3, hjust = 0.5, vjust = 0.5) +
     scale_color_identity() +
     theme_minimal() +
-    labs(title = paste("PCA of Sites by Species –", stage_name, "Life Stage"),
+    labs(title = paste("PCA of Sites by Species –", "Life Stage"),
          x = "PC1", y = "PC2") +
     theme(legend.position = "none")
 
@@ -788,14 +791,223 @@ pca_plots$Adult
 (pca_plots[[1]] | pca_plots[[2]]) /
 (pca_plots[[3]] | pca_plots[[4]])
 
-
-
-
-
-
-
-
 ```
+```{r}
+#filtering the data and separate the class size one by one for after make the plot for each class sizes 
+# Filter your dataset for one LifeStage
+#0-2cm lifestage
+zero_twocm_data <- relative_abundance.LS %>%
+  filter(LifeStage == "0-2cm")
+
+#2>5cm lifestage
+two_fivecm_data <- relative_abundance.LS %>%
+  filter(LifeStage == ">2cm-5cm")
+
+#5>14cm lifestage
+five_fourteencm_data <- relative_abundance.LS %>%
+  filter(LifeStage == ">5cm-14cm")
+
+#>14cm lifestage
+fourteencm_data <- relative_abundance.LS %>%
+  filter(LifeStage == ">14cm")
+
+#0-2cm lifestage
+# Aggregate relative abundance by Site and Species
+data_RA_zero_two <- zero_twocm_data %>%
+  group_by(Site, Species) %>%
+  summarise(RelAbundance = sum(Relative_Abundance), .groups = "drop") %>%
+  pivot_wider(names_from = Species, values_from = RelAbundance, values_fill = 0)
+
+# Run PCA
+abundance_matrix <- data_RA_zero_two %>% select(-Site)
+pca_zero_two <- rda(abundance_matrix, scale = TRUE)
+
+# Extract PCA scores
+site_scores <- scores(pca_zero_two, display = "sites") %>% as.data.frame()
+site_scores$Site <- data_RA_zero_two$Site
+
+species_scores <- scores(pca_zero_two, display = "species") %>% as.data.frame()
+species_scores$Species <- rownames(species_scores)
+
+# Add species colors
+species_scores <- species_scores %>%
+  left_join(cols.species, by = c("Species" = "species"))
+
+pca_zero_two <- ggplot() +
+  geom_text_repel(data = site_scores, 
+                  aes(x = PC1, y = PC2, label = Site),
+                  fontface = "bold", size = 3.5, color = "black") +
+  geom_segment(data = species_scores,
+               aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
+               arrow = arrow(length = unit(0.3, "cm")), alpha = 0.8) +
+  geom_text(data = species_scores, 
+            aes(x = PC1 * 1.1, y = PC2 * 1.1, label = Species, color = Color),
+            size = 3, hjust = 0.5, vjust = 0.5) +
+  scale_color_identity() +
+  theme_minimal() +
+  labs(title = "PCA of sites by species 0-2cm life stage",
+       x = "PC1", y = "PC2") +
+  theme(legend.position = "none")
+
+pca_zero_two
+ggsave("Output/pca_zero_two.png", pca_zero_two,
+       width = 10, height = 8, dpi = 300)
+#2>5cm lifestage
+# Aggregate relative abundance by Site and Species
+data_RA_two_fivecm <- two_fivecm_data %>%
+  group_by(Site, Species) %>%
+  summarise(RelAbundance = sum(Relative_Abundance), .groups = "drop") %>%
+  pivot_wider(names_from = Species, values_from = RelAbundance, values_fill = 0)
+
+# Run PCA
+abundance_matrix <- data_RA_two_fivecm %>% select(-Site)
+pca_two_fivecm <- rda(abundance_matrix, scale = TRUE)
+
+# Extract PCA scores
+site_scores <- scores(pca_two_fivecm, display = "sites") %>% as.data.frame()
+site_scores$Site <- data_RA_two_fivecm$Site
+
+species_scores <- scores(pca_two_fivecm, display = "species") %>% as.data.frame()
+species_scores$Species <- rownames(species_scores)
+
+# Add species colors
+species_scores <- species_scores %>%
+  left_join(cols.species, by = c("Species" = "species"))
+
+pca_two_fivecm <- ggplot() +
+  geom_text_repel(data = site_scores, 
+                  aes(x = PC1, y = PC2, label = Site),
+                  fontface = "bold", size = 3.5, color = "black") +
+  geom_segment(data = species_scores,
+               aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
+               arrow = arrow(length = unit(0.3, "cm")), alpha = 0.8) +
+  geom_text(data = species_scores, 
+            aes(x = PC1 * 1.1, y = PC2 * 1.1, label = Species, color = Color),
+            size = 3, hjust = 0.5, vjust = 0.5) +
+  scale_color_identity() +
+  theme_minimal() +
+  labs(title = "PCA of sites by species >2-5cm life stage",
+       x = "PC1", y = "PC2") +
+  theme(legend.position = "none")
+
+pca_two_fivecm
+ggsave("Output/pca_two_fivecm.png", pca_two_fivecm,
+       width = 10, height = 8, dpi = 300)
+#5-14cmcm lifestage
+# Aggregate relative abundance by Site and Species
+data_RA_five_fourteencm <- two_fivecm_data %>%
+  group_by(Site, Species) %>%
+  summarise(RelAbundance = sum(Relative_Abundance), .groups = "drop") %>%
+  pivot_wider(names_from = Species, values_from = RelAbundance, values_fill = 0)
+
+# Run PCA
+abundance_matrix <- data_RA_five_fourteencm %>% select(-Site)
+pca_five_fourteencm <- rda(abundance_matrix, scale = TRUE)
+
+# Extract PCA scores
+site_scores <- scores(pca_five_fourteencm, display = "sites") %>% as.data.frame()
+site_scores$Site <- data_RA_five_fourteencm$Site
+
+species_scores <- scores(pca_five_fourteencm, display = "species") %>% as.data.frame()
+species_scores$Species <- rownames(species_scores)
+
+# Add species colors
+species_scores <- species_scores %>%
+  left_join(cols.species, by = c("Species" = "species"))
+
+pca_five_fourteencm <- ggplot() +
+  geom_text_repel(data = site_scores, 
+                  aes(x = PC1, y = PC2, label = Site),
+                  fontface = "bold", size = 3.5, color = "black") +
+  geom_segment(data = species_scores,
+               aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
+               arrow = arrow(length = unit(0.3, "cm")), alpha = 0.8) +
+  geom_text(data = species_scores, 
+            aes(x = PC1 * 1.1, y = PC2 * 1.1, label = Species, color = Color),
+            size = 3, hjust = 0.5, vjust = 0.5) +
+  scale_color_identity() +
+  theme_minimal() +
+  labs(title = "PCA of sites by species 5-14cm life stage",
+       x = "PC1", y = "PC2") +
+  theme(legend.position = "none")
+
+pca_five_fourteencm
+ggsave("Output/pca_five_fourteencm.png", pca_five_fourteencm,
+       width = 10, height = 8, dpi = 300)
+#>14cm lifestage
+# Aggregate relative abundance by Site and Species
+data_RA_fourteencm <- two_fivecm_data %>%
+  group_by(Site, Species) %>%
+  summarise(RelAbundance = sum(Relative_Abundance), .groups = "drop") %>%
+  pivot_wider(names_from = Species, values_from = RelAbundance, values_fill = 0)
+
+# Run PCA
+abundance_matrix <- data_RA_fourteencm %>% select(-Site)
+pca_fourteencm <- rda(abundance_matrix, scale = TRUE)
+
+# Extract PCA scores
+site_scores <- scores(pca_fourteencm, display = "sites") %>% as.data.frame()
+site_scores$Site <- data_RA_fourteencm$Site
+
+species_scores <- scores(pca_fourteencm, display = "species") %>% as.data.frame()
+species_scores$Species <- rownames(species_scores)
+
+# Add species colors
+species_scores <- species_scores %>%
+  left_join(cols.species, by = c("Species" = "species"))
+
+pca_fourteencm <- ggplot() +
+  geom_text_repel(data = site_scores, 
+                  aes(x = PC1, y = PC2, label = Site),
+                  fontface = "bold", size = 3.5, color = "black") +
+  geom_segment(data = species_scores,
+               aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
+               arrow = arrow(length = unit(0.3, "cm")), alpha = 0.8) +
+  geom_text(data = species_scores, 
+            aes(x = PC1 * 1.1, y = PC2 * 1.1, label = Species, color = Color),
+            size = 3, hjust = 0.5, vjust = 0.5) +
+  scale_color_identity() +
+  theme_minimal() +
+  labs(title = "PCA of sites by species >14cm life stage",
+       x = "PC1", y = "PC2") +
+  theme(legend.position = "none")
+
+pca_fourteencm
+ggsave("Output/pca_fourteencm.png", pca_fourteencm,
+       width = 10, height = 8, dpi = 300)
+#combining all the PCA in one figure 
+#list of the plot want to be combine together 
+PCA_Species_site
+pca_zero_two
+pca_two_fivecm
+pca_five_fourteencm
+pca_fourteencm
+
+pca_zero_two <- pca_zero_two + theme(legend.position = "bottom",           
+    legend.title.align = 0.5,             
+    legend.box = "horizontal") 
+
+pca_two_fivecm <- pca_two_fivecm + theme(legend.position = "bottom",           
+    legend.title.align = 0.5,             
+    legend.box = "horizontal") 
+
+pca_five_fourteencm <- pca_five_fourteencm + theme(legend.position = "bottom",           
+    legend.title.align = 0.5,             
+    legend.box = "horizontal") 
+
+pca_fourteencm <- pca_fourteencm + theme(legend.position = "bottom",           
+    legend.title.align = 0.5,             
+    legend.box = "horizontal") 
+
+PCA_Species_site <- PCA_Species_site + theme(legend.position = "bottom",           
+    legend.title.align = 0.5,             
+    legend.box = "horizontal") 
+
+# Combine plots
+pca_RA_combine <- (pca_zero_two | pca_two_fivecm) / (pca_five_fourteencm | pca_fourteencm) / (PCA_Species_site)+
+  plot_annotation(tag_levels = 'A')
+```
+
 
 
 
