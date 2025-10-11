@@ -646,7 +646,7 @@ ggsave("Output/Relative_Abundance_haplotype_frequency_p.jpg", frequency_p, width
 ```{r}
 
 ```
-#PCA of species per site 
+#PCA of species per site  with all size included 
 ```{r}
 #Reshaping the data for the PCA
 #Aggregate relative abundance by Site and Species
@@ -673,7 +673,7 @@ pca_scores <- scores(pca_RA, display = "sites") %>% as.data.frame()
 pca_scores$Site <- data_RA$Site
 
 species_scores <- scores(pca_RA, display = "species") %>% as.data.frame()
-species_scores$Species <- rownames(species_scores)
+species_scores$species <- rownames(species_scores)
 ########
 
 # Assuming your data is already in wide format
@@ -690,46 +690,113 @@ site_scores$Site <- data_RA$Site
 species_scores <- scores(pca, display = "species") %>% as.data.frame()
 species_scores$Species <- rownames(species_scores)
 
-# Make sure your species color vector is named:
-# cols.species <- c("Species1"="#1f77b4", "Species2"="#ff7f0e", ...)
+# Make sure the species color vector is named
+cols.species <- cbind.data.frame(species = factor(c("P. tuahiniensis",
+                                            "P. meandrinaP. grandis",
+                                            "P. verrucosa",
+                                            "P. grandis",
+                                            "P. effusa",
+                                            "P. acuta",
+                                            "P. meandrina")),
+                         Color = c("#D55E00",
+                                   "#0072B2",
+                                   "#E69F00",
+                                   "#56B4E9",
+                                   "#009E73",
+                                   "#e63946",
+                                   "#CC79A7"))
 
 # Add color column to species_scores
-species_scores$color <- cols.species[species_scores$Species]
+species_scores <- species_scores %>%
+  left_join(cols.species, by = c("Species" = "species"))
 
-###########
-ggplot() +
-  geom_point(data = pca_scores, aes(x = PC1, y = PC2, color = Site), size = 3) +
-  geom_text(data = species_scores, aes(x = PC1, y = PC2, label = Species), color = "black", alpha = 0.7) +
-  theme_minimal() +
-  labs(title = "PCA of Sites by Species", x = "PC1", y = "PC2")
+#ploting PCA with species and sites all sizes include 
 
-ggplot() +
-  # Sites as points with different shapes
-  geom_point(data = site_scores, 
-             aes(x = PC1, y = PC2, shape = Site), 
-             size = 3) +
-  
-  # Species as arrows
+PCA_Species_site <- ggplot() +
+  geom_text_repel(data = site_scores, 
+                  aes(x = PC1, y = PC2, label = Site),
+                  fontface = "bold", size = 3.5, color = "black") +
   geom_segment(data = species_scores,
-               aes(x = 0, y = 0, xend = PC1, yend = PC2, color = cols.species),
+               aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
                arrow = arrow(length = unit(0.3, "cm")), alpha = 0.8) +
-  
-  # Optionally, label species at arrow tips
   geom_text(data = species_scores, 
-            aes(x = PC1*1.1, y = PC2*1.1, label = Species, color = cols.species),
+            aes(x = PC1 * 1.1, y = PC2 * 1.1, label = Species, color = Color),
             size = 3, hjust = 0.5, vjust = 0.5) +
-  
-  # Use your species color panel
-  scale_color_manual(values = cols.species) +
-  
+  scale_color_identity() +
   theme_minimal() +
-  labs(title = "PCA of Sites by Species",
+  labs(title = "PCA of sites by species all size class include",
        x = "PC1", y = "PC2") +
-  theme(legend.position = "right")
+  theme(legend.position = "none")
+
+```
+```{r}
+#ploting the data with the different class size 
+run_pca_plot <- function(relative_abundance.LS, stage_name) 
+  
+#Aggregate relative abundance by Site and Species
+  data_stage <- relative_abundance.LS %>%
+    group_by(Site, Species) %>%
+    summarise(RelAbundance = sum(Relative_Abundance), .groups = "drop") %>%
+    pivot_wider(names_from = Species, values_from = RelAbundance, values_fill = 0)
+  
+  # PCA
+  abundance_matrix <- data_stage %>% select(-Site)
+  pca <- rda(abundance_matrix, scale = TRUE)
+  
+  # Scores
+  site_scores <- scores(pca, display = "sites") %>% as.data.frame()
+  site_scores$Site <- data_stage$Site
+  
+  species_scores <- scores(pca, display = "species") %>% as.data.frame()
+  species_scores$Species <- rownames(species_scores)
+  
+  # Join color info
+  species_scores <- species_scores %>%
+    left_join(cols.species, by = c("Species" = "species"))
+  
+  # Plot PCA
+ggplot() +
+    geom_text_repel(data = site_scores, 
+                    aes(x = PC1, y = PC2, label = Site),
+                    fontface = "bold", size = 3.5, color = "black") +
+    geom_segment(data = species_scores,
+                 aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
+                 arrow = arrow(length = unit(0.3, "cm")), alpha = 0.8) +
+    geom_text(data = species_scores, 
+              aes(x = PC1 * 1.1, y = PC2 * 1.1, label = Species, color = Color),
+              size = 3, hjust = 0.5, vjust = 0.5) +
+    scale_color_identity() +
+    theme_minimal() +
+    labs(title = paste("PCA of Sites by Species –", stage_name, "Life Stage"),
+         x = "PC1", y = "PC2") +
+    theme(legend.position = "none")
+
+
+# --- Run PCA for each LifeStage ---
+pca_plots <- relative_abundance.LS %>%
+  group_split(LifeStage) %>%
+  set_names(unique(relative_abundance.LS$LifeStage)) %>%
+  map(~ run_pca_plot(.x, unique(.x$LifeStage)))
+
+# --- View results ---
+pca_plots$Recruit      # example (replace with your actual level names)
+pca_plots$Juvenile
+pca_plots$Subadult
+pca_plots$Adult
+
+# --- Combine into one panel (optional) ---
+(pca_plots[[1]] | pca_plots[[2]]) /
+(pca_plots[[3]] | pca_plots[[4]])
+
+
+
+
 
 
 
 
 ```
+
+
 
 
