@@ -726,7 +726,8 @@ PCA_Species_site <- ggplot() +
   theme_minimal() +
   labs(title = "PCA of sites by species all size class include",
        x = "PC1", y = "PC2") +
-  theme(legend.position = "none")
+  theme(legend.position = "none")+ 
+coord_fixed(ratio = 0.8)
 
 PCA_Species_site
 ggsave("Output/PCA_Species_site.png", PCA_Species_site,
@@ -772,7 +773,8 @@ ggplot() +
     theme_minimal() +
     labs(title = paste("PCA of Sites by Species –", "Life Stage"),
          x = "PC1", y = "PC2") +
-    theme(legend.position = "none")
+    theme(legend.position = "none")+ 
+coord_fixed(ratio = 0.8)
 
 
 # --- Run PCA for each LifeStage ---
@@ -847,7 +849,8 @@ pca_zero_two <- ggplot() +
   theme_minimal() +
   labs(title = "PCA of sites by species 0-2cm life stage",
        x = "PC1", y = "PC2") +
-  theme(legend.position = "none")
+  theme(legend.position = "none")+ 
+coord_fixed(ratio = 0.8)
 
 pca_zero_two
 ggsave("Output/pca_zero_two.png", pca_zero_two,
@@ -888,7 +891,8 @@ pca_two_fivecm <- ggplot() +
   theme_minimal() +
   labs(title = "PCA of sites by species >2-5cm life stage",
        x = "PC1", y = "PC2") +
-  theme(legend.position = "none")
+  theme(legend.position = "none")+ 
+coord_fixed(ratio = 0.8)
 
 pca_two_fivecm
 ggsave("Output/pca_two_fivecm.png", pca_two_fivecm,
@@ -929,7 +933,8 @@ pca_five_fourteencm <- ggplot() +
   theme_minimal() +
   labs(title = "PCA of sites by species 5-14cm life stage",
        x = "PC1", y = "PC2") +
-  theme(legend.position = "none")
+  theme(legend.position = "none")+ 
+coord_fixed(ratio = 0.8)
 
 pca_five_fourteencm
 ggsave("Output/pca_five_fourteencm.png", pca_five_fourteencm,
@@ -970,7 +975,9 @@ pca_fourteencm <- ggplot() +
   theme_minimal() +
   labs(title = "PCA of sites by species >14cm life stage",
        x = "PC1", y = "PC2") +
-  theme(legend.position = "none")
+  theme(legend.position = "none") + 
+coord_fixed(ratio = 0.8)  # slightly taller than wide
+
 
 pca_fourteencm
 ggsave("Output/pca_fourteencm.png", pca_fourteencm,
