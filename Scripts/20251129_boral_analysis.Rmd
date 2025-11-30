@@ -1,0 +1,3174 @@
+---
+title: "BayesianOrdinationRegressionAnaLysis"
+author: "P Harnay"
+date: "2025-11-24"
+output: html_document
+---
+
+Joint species distribution model approach
+Install and load packages
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# download and install jags at https://sourceforge.net/projects/mcmc-jags/files/JAGS/4.x/Mac%20OS%20X/
+
+library(tidyverse)
+library(rjags)
+library(R2jags)
+library(boral)
+#Hui, F. K. C. (2016). boral—Bayesian ordination and regression analysis of multivariate abundance data in R. Methods in Ecology and Evolution, 7, 744–750.
+library(dplyr)
+library(reshape2)
+library(geosphere)
+library(dplyr)
+library(ggplot2)
+library(scales)
+
+
+```
+
+load and visualize coral density data
+```{r}
+
+data <- read.csv("Data/density.csv")%>%
+  select("Site","Species","LifeStage","mean_density", "sd_density")
+
+str(data)
+
+data$LifeStage <- factor(
+  data$LifeStage,
+  levels = c("0-2cm", ">2cm-5cm", ">5cm-14cm", ">14cm")
+)
+
+data$Site <- factor(
+  data$Site,
+  levels = c("S2", "S3", "S4", "S5", "S6", "S9", "S11", "S12", "S14", "S15", "S18" )
+)
+
+unscaled.density <- ggplot(data, aes(x = Site,
+                 y = mean_density,
+                 fill = Species)) +   # <-- map Species to fill
+  geom_col() +
+  geom_errorbar(aes(ymin = mean_density - sd_density,
+                    ymax = mean_density + sd_density),
+                width = 0.2) +
+  facet_grid(Species ~ LifeStage) +
+  scale_fill_manual(values = c(
+    "P. tuahiniensis" = "#D55E00",
+    "P. meandrina"    = "#0072B2",
+    "P. verrucosa"    = "#E69F00",
+    "P. grandis"      = "#56B4E9",
+    "P. effusa"       = "#009E73",
+    "P. acuta"        = "#e63946"
+  )) +
+  labs(x = "Site",
+       y = expression("Density (colonies m"^{-2}*")"),
+       fill = "Species") +
+  theme_bw(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1),
+    strip.background = element_rect(fill = "grey90")
+  )
+unscaled.density
+
+scaled.density <- ggplot(data, aes(x = Site,
+                 y = mean_density,
+                 fill = Species)) +   # <-- map Species to fill
+  geom_col() +
+  geom_errorbar(aes(ymin = mean_density - sd_density,
+                    ymax = mean_density + sd_density),
+                width = 0.2) +
+  facet_grid(Species ~ LifeStage, scales="free") +
+  scale_fill_manual(values = c(
+    "P. tuahiniensis" = "#D55E00",
+    "P. meandrina"    = "#0072B2",
+    "P. verrucosa"    = "#E69F00",
+    "P. grandis"      = "#56B4E9",
+    "P. effusa"       = "#009E73",
+    "P. acuta"        = "#e63946"
+  )) +
+  labs(x = "Site",
+       y = expression("Density (colonies m"^{-2}*")"),
+       fill = "Species") +
+  theme_bw(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1),
+    strip.background = element_rect(fill = "grey90")
+  )
+
+scaled.density
+
+ggsave(
+  filename = "Output/scaled_density_plot.png",
+  plot = scaled.density,
+  device = "png",
+  width = 8,     # adjust width in inches
+  height = 9,     # adjust height in inches
+  units = "in"
+)
+
+```
+
+1. Response matrix Y: coral density by species × size class × site
+Reshape data to make a site × (species-sizeclass) matrix
+```{r}
+coral_long <- data
+
+coral_wide <- coral_long %>%
+  mutate(sp_sz = paste(Species, LifeStage, sep = "_")) %>%
+  select(Site, sp_sz, mean_density) %>%
+  pivot_wider(names_from = sp_sz,
+              values_from = mean_density,
+              values_fill = 0)
+
+# response matrix Y
+Y <- coral_wide %>%
+  column_to_rownames("Site") %>%
+  as.matrix()
+
+
+```
+
+2. Site table sites: PH locations + shore
+list site locations and assign shore
+```{r}
+sites <- tribble(
+  ~long,        ~lat,         ~site.name,
+  -149.8764837, -17.48523962, "S1",
+  -149.8526452, -17.48223933, "S2",
+  -149.8344367, -17.47810177, "S3",
+  -149.8076461, -17.47569278, "S4",
+  -149.7835691, -17.47304608, "S5",
+  -149.7614724, -17.50575957, "S6",
+  -149.7845548, -17.56535312, "S9",
+  -149.804473,  -17.60276752, "S11",
+  -149.8478059, -17.59508584, "S12",
+  -149.8837824, -17.56500936, "S14",
+  -149.9007712, -17.54654008, "S15",
+  -149.9239404, -17.49378121, "S18"
+)
+
+sites <- sites %>%
+  mutate(
+    shore = case_when(
+      site.name %in% c("S1","S2","S3","S4","S5") ~ "North",
+      site.name %in% c("S6","S9","S11") ~ "East",
+      site.name %in% c("S12","S14","S15", "S18") ~ "West"
+    ),
+    shore = factor(shore, levels = c("West","North","East"))
+  )
+
+sites <- sites %>%
+  filter(site.name %in% rownames(Y)) %>%
+  arrange(match(site.name, rownames(Y)))
+
+stopifnot(all(sites$site.name == rownames(Y)))  # sanity check
+
+```
+
+3. Wave forcing: fore-reef energy, 3-shore resolution
+Wave Forcing
+3.1 wave download function
+```{r}
+options(HTTPUserAgent = "EDI_CodeGen")
+
+read_mcr_wave <- function(url) {
+  tmp <- tempfile()
+  # Try curl first (needed for EDI sometimes)
+  try(
+    download.file(
+      url, tmp,
+      method = "curl",
+      extra  = paste0(' -A "', getOption("HTTPUserAgent"), '"')
+    ),
+    silent = TRUE
+  )
+
+  # Fallback to default method if curl failed
+  if (is.na(file.size(tmp))) {
+    download.file(url, tmp, method = "auto")
+  }
+
+  # Read the data: skip the first line (metadata), use the second as header
+  dat <- read.csv(
+    tmp,
+    header = TRUE,
+    skip   = 0,
+    sep    = ",",
+    quote  = '"',
+    check.names = TRUE,
+    stringsAsFactors = FALSE
+  )
+
+  unlink(tmp)
+
+  # If the file uses time_local / time_utc columns, parse them
+  if ("time_local" %in% names(dat)) {
+    suppressWarnings({
+      dat$time_local <- as.POSIXct(dat$time_local, tz = "Pacific/Midway") # adjust TZ if needed
+    })
+  }
+  if ("time_utc" %in% names(dat)) {
+    suppressWarnings({
+      dat$time_utc <- as.POSIXct(dat$time_utc, tz = "UTC")
+    })
+  }
+
+  dat
+}
+
+
+```
+
+3.2 Download data
+```{r}
+# Package ID: knb-lter-mcr.30.44 Cataloging System:https://pasta.edirepository.org.
+# Data set title: MCR LTER: Coral Reef: Ocean Currents and Biogeochemistry: salinity, temperature and current at CTD and ADCP mooring FOR01 from 2004 ongoing.
+# Data set creator:    - Moorea Coral Reef LTER 
+# Data set creator:  Libe Washburn - Moorea Coral Reef LTER 
+# Metadata Provider:    - Moorea Coral Reef LTER 
+# Contact:    - Information Manager Moorea Coral Reef LTER  - mcrlter@msi.ucsb.edu
+wave_lter1 <- read_mcr_wave(
+  "https://pasta.lternet.edu/package/data/eml/knb-lter-mcr/30/44/e29d12699f7556d886c3b3c275370b42")
+
+# Package ID: knb-lter-mcr.31.45 Cataloging System:https://pasta.edirepository.org.
+# Data set title: MCR LTER: Coral Reef: Ocean Currents and Biogeochemistry: salinity, temperature and current at CTD and ADCP mooring FOR04 from 2004 ongoing.
+# Data set creator:    - Moorea Coral Reef LTER 
+# Data set creator:  Libe Washburn - Moorea Coral Reef LTER 
+# Metadata Provider:    - Moorea Coral Reef LTER 
+# Contact:    - Information Manager Moorea Coral Reef LTER  - mcrlter@msi.ucsb.edu
+wave_lter4 <- read_mcr_wave("https://pasta.lternet.edu/package/data/eml/knb-lter-mcr/31/45/e29d12699f7556d886c3b3c275370b42")
+
+# Package ID: knb-lter-mcr.32.41 Cataloging System:https://pasta.edirepository.org.
+# Data set title: MCR LTER: Coral Reef: Ocean Currents and Biogeochemistry: salinity, temperature and current at CTD and ADCP mooring FOR05 from 2005 ongoing.
+# Data set creator:    - Moorea Coral Reef LTER 
+# Data set creator:  Libe Washburn - Moorea Coral Reef LTER 
+# Metadata Provider:    - Moorea Coral Reef LTER 
+# Contact:    - Information Manager Moorea Coral Reef LTER  - mcrlter@msi.ucsb.edu
+wave_lter5 <- read_mcr_wave("https://pasta.lternet.edu/package/data/eml/knb-lter-mcr/32/41/e29d12699f7556d886c3b3c275370b42")
+
+
+wave_lter1 <- wave_lter1 %>%
+  mutate(
+    # Replace -999 with NA for the key wave variables
+    wave_ht_adcp_m = na_if(wave_ht_adcp_m, -999),
+    wave_period_adcp_sec = na_if(wave_period_adcp_sec, -999),
+    wave_power_adcp = na_if(wave_power_adcp, -999)
+  )
+
+str(wave_lter1)
+names(wave_lter1)
+head(wave_lter1)
+
+wave_lter4 <- wave_lter4 %>%
+  mutate(
+    # Replace -999 with NA for the key wave variables
+    wave_ht_adcp_m = na_if(wave_ht_adcp_m, -999),
+    wave_period_adcp_sec = na_if(wave_period_adcp_sec, -999),
+    wave_power_adcp = na_if(wave_power_adcp, -999)
+  )
+
+str(wave_lter4)
+names(wave_lter4)
+head(wave_lter4)
+
+wave_lter5 <- wave_lter5 %>%
+  mutate(
+    # Replace -999 with NA for the key wave variables
+    wave_ht_adcp_m = na_if(wave_ht_adcp_m, -999),
+    wave_period_adcp_sec = na_if(wave_period_adcp_sec, -999),
+    wave_power_adcp = na_if(wave_power_adcp, -999)
+  )
+
+str(wave_lter5)
+names(wave_lter5)
+head(wave_lter5)
+
+#filter to dates after > 2017
+wave_lter1 <- wave_lter1 %>%
+  filter(time_local > as.Date("2016-12-31"))
+wave_lter4 <- wave_lter4 %>%
+  filter(time_local > as.Date("2016-12-31"))
+wave_lter5 <- wave_lter5 %>%
+  filter(time_local > as.Date("2016-12-31"))
+
+```
+
+3.3 Function for Calculating Wave Power
+```{r}
+#Calculate P = wave energy flux (kW m–1)
+#From Dean & Dalrymple (1991)
+#P = wave energy flux (W m⁻¹)
+#ρ=1028 kg m⁻³ (seawater density)
+#g=9.8 m s⁻²
+#Hsig = significant wave height (m)
+#T = dominant wave period (s)
+
+rho <- 1028     # seawater density
+g <- 9.8        # gravity
+
+
+process_wave_site <- function(dat, shore_label, start_date = "2017-01-01") {
+
+  dat_clean <- dat %>%
+    mutate(
+      wave_ht_adcp_m       = na_if(wave_ht_adcp_m, -999),
+      wave_period_adcp_sec = na_if(wave_period_adcp_sec, -999),
+      wave_power_adcp      = na_if(wave_power_adcp, -999),
+      Hsig = wave_ht_adcp_m,
+      T    = wave_period_adcp_sec,
+      P_wm  = (rho * g^2 * Hsig^2 * T) / (64 * pi),
+      P_kwm = P_wm / 1000
+    )
+
+  daily <- dat_clean %>%
+    mutate(date = as.Date(time_local)) %>%
+    group_by(date) %>%
+    summarise(
+      wave_power_adcp   = mean(wave_power_adcp,   na.rm = TRUE),
+      wave_ht_adcp_m    = mean(wave_ht_adcp_m,    na.rm = TRUE),
+      wave_period_adcp  = mean(wave_period_adcp_sec, na.rm = TRUE),
+      P_kwm             = mean(P_kwm, na.rm = TRUE),
+      .groups = "drop"
+    )
+
+  clim <- daily %>%
+    filter(date >= as.Date(start_date)) %>%
+    summarise(
+      P_mean = mean(P_kwm, na.rm = TRUE),
+      P_p95  = quantile(P_kwm, 0.95, na.rm = TRUE),
+      P_max  = max(P_kwm, na.rm = TRUE),
+      P_sd   = sd(P_kwm, na.rm = TRUE)
+    ) %>%
+    mutate(shore = shore_label)
+
+  list(daily = daily, clim = clim)
+}
+
+```
+
+3.4 Calculate Wave Power
+```{r}
+
+#LTER_1
+res_lter1 <- process_wave_site(wave_lter1, shore_label = "North")
+wave_lter1_daily <- res_lter1$daily
+wave_lter1_clim  <- res_lter1$clim
+
+#LTER_4
+res_lter4 <- process_wave_site(wave_lter4, shore_label = "East")
+wave_lter4_daily <- res_lter4$daily
+wave_lter4_clim  <- res_lter4$clim
+
+#LTER_5
+res_lter5 <- process_wave_site(wave_lter5, shore_label = "West")
+wave_lter5_daily <- res_lter5$daily
+wave_lter5_clim  <- res_lter5$clim
+
+
+
+```
+
+3.5 Plot daily P_kwm for all 3 sites on the same axes
+```{r}
+wave_daily_all <- bind_rows(
+  wave_lter1_daily %>% mutate(site = "LTER_1 (North)"),
+  wave_lter4_daily %>% mutate(site = "LTER_4 (East)"),
+  wave_lter5_daily %>% mutate(site = "LTER_5 (West)")
+)
+
+waves <- ggplot(wave_daily_all, aes(x = date, y = P_kwm)) +
+  geom_line(linewidth = 0.3) +
+  facet_wrap(~ site, nrow = 1, scales = "fixed") +  # same y-axis across facets
+  labs(
+    #title = "Wave energy flux (kW m^-1) – Fore Reef Stations",
+    x = "Date",
+    y = expression("Wave energy flux (kW m"^{-1}*")")
+  ) +
+  theme_bw() +
+  theme(
+    strip.background = element_rect(fill = "grey90"),
+    strip.text = element_text(face = "bold")
+  )
+
+ggsave(
+  filename = "Output/waves_plot.png",
+  plot = waves,
+  device = "png",
+  width = 8,     # adjust width in inches
+  height = 4,     # adjust height in inches
+  units = "in"
+)
+
+
+```
+
+3.6 Build the shore-level wave table for the JSDM
+```{r}
+
+wave_shore <- bind_rows(
+  wave_lter1_clim,
+  wave_lter4_clim,
+  wave_lter5_clim
+) %>%
+  select(shore, P_mean, P_p95, P_max, P_sd)
+
+wave_shore
+
+sites_wave <- sites %>%
+  left_join(wave_shore, by = "shore")
+
+str(sites_wave)
+
+```
+
+4. Lagoon temperature: site-level from SBE56 array
+Temperature
+
+4.1 Downloading temperature data
+```{r}
+# Package ID: knb-lter-mcr.1045.6 Cataloging System:https://pasta.edirepository.org.
+# Data set title: MCR LTER: Coral Reef: Island-Wide Lagoon Benthic Water Temperature, ongoing since 2021.
+# Data set creator:    - Moorea Coral Reef LTER 
+# Data set creator:  Tom Adam - Moorea Coral Reef LTER 
+# Data set creator:  James Hench - Moorea Coral Reef LTER 
+# Data set creator:  Andrew Brooks - Moorea Coral Reef LTER 
+# Metadata Provider:    - Moorea Coral Reef LTER 
+# Contact:    - Information Manager Moorea Coral Reef LTER  - mcrlter@msi.ucsb.edu
+# Stylesheet v2.15 for metadata conversion into program: John H. Porter, Univ. Virginia, jporter@virginia.edu      
+# Uncomment the following lines to have R clear previous work, or set a working directory
+# rm(list=ls())      
+
+# setwd("C:/users/my_name/my_dir")       
+
+options(HTTPUserAgent = "EDI_CodeGen")
+
+## ---------- 1. Daily lagoon temperature (rename dt1 → temp_daily) ----------
+
+temp_url  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-mcr/1045/6/7a8090507e95d40ba98d837388f7c506"
+temp_file <- tempfile()
+
+try(
+  download.file(
+    temp_url,
+    temp_file,
+    method = "curl",
+    extra = paste0(' -A "', getOption("HTTPUserAgent"), '"')
+  )
+)
+
+if (is.na(file.size(temp_file))) {
+  download.file(temp_url, temp_file, method = "auto")
+}
+
+lagoon_temp_daily <- read.csv(
+  temp_file,
+  header   = FALSE,
+  skip     = 1,
+  sep      = ",",
+  quote    = '"',
+  col.names = c(
+    "site",
+    "date_local",
+    "min_temp_c",
+    "max_temp_c",
+    "median_temp_c",
+    "mean_temp_c"
+  ),
+  check.names = TRUE
+)
+
+unlink(temp_file)
+
+## Type fixes / parsing (no attach)
+
+lagoon_temp_daily <- lagoon_temp_daily %>%
+  mutate(
+    site = as.factor(site),
+    # parse date
+    date_local = as.Date(date_local, format = "%Y-%m-%d"),
+    # numeric temps
+    across(
+      c(min_temp_c, max_temp_c, median_temp_c, mean_temp_c),
+      ~ suppressWarnings(as.numeric(.))
+    )
+  )
+
+str(lagoon_temp_daily)
+summary(lagoon_temp_daily$site)
+summary(lagoon_temp_daily$mean_temp_c)
+
+#plot mean data to look for outliers
+ggplot(lagoon_temp_daily, aes(x = date_local, y = mean_temp_c)) +
+  geom_line(color = "steelblue", linewidth = 0.3) +
+  facet_wrap(~ site, scales = "free_y", ncol = 7) +
+  theme_bw(base_size = 9) +
+  labs(
+    title = "Daily Mean Temperature at All Lagoon Sites",
+    x = "Date",
+    y = "Mean Temp (°C)"
+  )
+
+#plot min data to look for outliers
+ggplot(lagoon_temp_daily, aes(x = date_local, y = min_temp_c)) +
+  geom_line(color = "steelblue", linewidth = 0.3) +
+  facet_wrap(~ site, scales = "free_y", ncol = 7) +
+  theme_bw(base_size = 9) +
+  labs(
+    title = "Daily Minimum Temperature at All Lagoon Sites",
+    x = "Date",
+    y = "Minimum Temp (°C)"
+  )
+
+#plot max data to look for outliers
+ggplot(lagoon_temp_daily, aes(x = date_local, y = max_temp_c)) +
+  geom_line(color = "steelblue", linewidth = 0.3) +
+  facet_wrap(~ site, scales = "free_y", ncol = 7) +
+  theme_bw(base_size = 9) +
+  labs(
+    title = "Daily Maximum Temperature at All Lagoon Sites",
+    x = "Date",
+    y = "Maximum Temp (°C)"
+  )
+
+
+
+## ---------- 2. Site–filename lookup (rename dt2 → temp_files) ----------
+
+temp_meta_url  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-mcr/1045/6/aa66754bc0fec207b813ee970389ad93"
+temp_meta_file <- tempfile()
+
+try(
+  download.file(
+    temp_meta_url,
+    temp_meta_file,
+    method = "curl",
+    extra = paste0(' -A "', getOption("HTTPUserAgent"), '"')
+  )
+)
+
+if (is.na(file.size(temp_meta_file))) {
+  download.file(temp_meta_url, temp_meta_file, method = "auto")
+}
+
+lagoon_temp_files <- read.csv(
+  temp_meta_file,
+  header   = FALSE,
+  skip     = 1,
+  sep      = ",",
+  quote    = '"',
+  col.names = c("site_code", "filename"),
+  check.names = TRUE
+)
+
+unlink(temp_meta_file)
+
+lagoon_temp_files <- lagoon_temp_files %>%
+  mutate(
+    site_code = as.factor(site_code),
+    filename  = as.factor(filename)
+  )
+
+str(lagoon_temp_files)
+summary(lagoon_temp_files$site_code)
+
+
+```
+
+4.2 Summarize temperature data
+```{r}
+lagoon_temp_summary <- lagoon_temp_daily %>%
+  group_by(site) %>%
+  summarise(
+    mean_temp        = mean(mean_temp_c, na.rm = TRUE),
+    median_temp      = median(median_temp_c, na.rm = TRUE),
+    max_temp         = max(max_temp_c, na.rm = TRUE),
+    p95_temp         = quantile(max_temp_c, 0.95, na.rm = TRUE),
+    sd_temp          = sd(mean_temp_c, na.rm = TRUE),
+    mean_daily_range = mean(max_temp_c - min_temp_c, na.rm = TRUE),
+    freq_above_30C   = mean(max_temp_c > 30, na.rm = TRUE),
+    n_days           = sum(!is.na(mean_temp_c)),
+    .groups = "drop"
+  )
+
+lagoon_temp_summary
+
+lagoon_coords <- tribble(
+  ~site,   ~long,      ~lat,
+  # Backbone B01–B35
+  "B01",   -149.89,    -17.485,
+  "B02",   -149.879,   -17.484,
+  "B03",   -149.868,   -17.487,
+  "B04",   -149.85,    -17.482,
+  "B05",   -149.833,   -17.479,
+  "B06",   -149.817,   -17.475,
+  "B07",   -149.806,   -17.475,
+  "B08",   -149.793,   -17.475,
+  "B09",   -149.784,   -17.473,
+  "B10",   -149.761,   -17.503,
+  "B10.5", -149.763,   -17.508,
+  "B11",   -149.765,   -17.520,
+  "B12",   -149.765,   -17.530,
+  "B13",   -149.764,   -17.535,
+  "B14",   -149.767,   -17.541,
+  "B15",   -149.783,   -17.561,
+  "B16",   -149.787,   -17.569,
+  "B17",   -149.789,   -17.580,
+  "B18",   -149.791,   -17.587,
+  "B19",   -149.799,   -17.599,
+  "B20",   -149.808,   -17.603,
+  "B21",   -149.817,   -17.603,
+  "B22",   -149.827,   -17.603,
+  "B23",   -149.836,   -17.599,
+  "B24",   -149.853,   -17.593,
+  "B25",   -149.861,   -17.590,
+  "B26",   -149.867,   -17.585,
+  "B27",   -149.882,   -17.568,
+  "B28",   -149.885,   -17.562,
+  "B29",   -149.892,   -17.555,
+  "B30",   -149.897,   -17.550,
+  "B31",   -149.902,   -17.545,
+  "B32",   -149.913,   -17.535,
+  "B33",   -149.922,   -17.513,
+  "B34",   -149.924,   -17.504,
+  "B35",   -149.923,   -17.495,
+
+  # North transect N01–N05
+  "N01",   -149.84593, -17.48063,
+  "N02",   -149.84624, -17.48011,
+  "N03",   -149.84657, -17.47915,
+  "N04",   -149.84544, -17.48146,
+  "N05",   -149.84500, -17.48200,
+
+  # West transect W01–W05
+  "W01",   -149.86800, -17.58630,
+  "W02",   -149.86721, -17.58585,
+  "W04",   -149.86654, -17.58431,
+  "W05",   -149.86600, -17.58300,
+
+  # East transect E01–E04
+  "E01",   -149.76600, -17.54090,
+  "E02",   -149.76600, -17.54110,
+  "E03",   -149.76800, -17.54030,
+  "E04",   -149.76800, -17.53970
+)
+
+lagoon_temp_full <- lagoon_temp_summary %>%
+  left_join(lagoon_coords, by = "site")
+
+```
+
+4.3 Map temperature data to coral sites
+```{r}
+ph_coords  <- as.matrix(sites[, c("long", "lat")])
+temp_coords <- as.matrix(lagoon_temp_full[, c("long", "lat")])
+
+dist_mat_temp <- distm(ph_coords, temp_coords, fun = distHaversine)
+
+nn_temp_idx <- apply(dist_mat_temp, 1, which.min)
+dist_to_temp_m <- apply(dist_mat_temp, 1, min)
+
+#join
+sites_temp <- sites %>%
+  mutate(
+    temp_site         = lagoon_temp_full$site[nn_temp_idx],
+    temp_long         = lagoon_temp_full$long[nn_temp_idx],
+    temp_lat          = lagoon_temp_full$lat[nn_temp_idx],
+    mean_temp_br      = lagoon_temp_full$mean_temp[nn_temp_idx],
+    median_temp_br    = lagoon_temp_full$median_temp[nn_temp_idx],
+    max_temp_br       = lagoon_temp_full$max_temp[nn_temp_idx],
+    p95_temp_br       = lagoon_temp_full$p95_temp[nn_temp_idx],
+    daily_range_br    = lagoon_temp_full$mean_daily_range[nn_temp_idx],
+    sd_temp_br        = lagoon_temp_full$sd_temp[nn_temp_idx],
+    freq_above_30C_br = lagoon_temp_full$freq_above_30C[nn_temp_idx],
+    dist_to_temp_m    = dist_to_temp_m
+  )
+
+#inspect
+sites_temp %>%
+  select(site.name, shore, temp_site, dist_to_temp_m,
+         mean_temp_br, max_temp_br, p95_temp_br, daily_range_br)
+
+str(sites_temp)
+
+```
+View temperature data daily
+```{r}
+## 1. Extract mapping: coral site.name → temp_site
+temp_map <- sites_temp %>%
+  select(site.name, temp_site)
+
+## 2. Filter lagoon_temp_daily to only the 11 temp sites
+lagoon_temp_coral <- lagoon_temp_daily %>%
+  filter(site %in% unique(temp_map$temp_site)) %>%
+  mutate(daily_range_c = max_temp_c - min_temp_c)
+
+## 3. Join so each row knows its coral site.name
+lagoon_temp_joined <- lagoon_temp_coral %>%
+  left_join(temp_map, by = c("site" = "temp_site")) %>%
+  # reorder levels if you want S11 → S36 in order
+  mutate(site.name = factor(site.name, levels = sort(unique(site.name))))
+
+## ---- CHECK RESULT
+# head(lagoon_temp_joined)
+
+temp_max <- ggplot(
+  lagoon_temp_joined %>% filter(!is.na(max_temp_c)),
+  aes(x = date_local, y = max_temp_c, color = site.name)
+) +
+  geom_point(size = 0.8, alpha = 0.7) +
+  scale_color_viridis_d(option = "turbo") +
+  theme_bw(base_size = 12) +
+  labs(
+    title = "Daily Maximum Temperature at Coral Sites",
+    x = "Date",
+    y = "Maximum Temperature (°C)",
+    color = "Coral Site"
+  )
+
+
+temp_range <- ggplot(
+  lagoon_temp_joined %>% filter(!is.na(daily_range_c)),
+  aes(x = date_local, y = daily_range_c, color = site.name)
+) +
+  geom_point(size = 0.8, alpha = 0.7) +
+  scale_color_viridis_d(option = "magma") +
+  theme_bw(base_size = 12) +
+  labs(
+    title = "Daily Temperature Range at Coral Sites",
+    x = "Date",
+    y = "Temperature Range (°C)",
+    color = "Coral Site"
+  )
+
+ggsave(
+  filename = "Output/temp_max_plot.png",
+  plot = temp_max,
+  device = "png",
+  width = 8,     # adjust width in inches
+  height = 4,     # adjust height in inches
+  units = "in"
+)
+
+ggsave(
+  filename = "Output/temp_range_plot.png",
+  plot = temp_range,
+  device = "png",
+  width = 8,     # adjust width in inches
+  height = 4,     # adjust height in inches
+  units = "in"
+)
+
+```
+
+5. Benthic cover: backreef photoquadrats, block-level
+
+5.1 Download benthic cover data and clean
+```{r}
+# Package ID: knb-lter-mcr.1038.14 Cataloging System:https://pasta.edirepository.org.
+# Data set title: MCR LTER: Coral Reef: Long-term Community Dynamics: Backreef (Lagoon) Corals Annual Survey, ongoing since 2005.
+# Data set creator:    - Moorea Coral Reef LTER 
+# Data set creator:  Peter Edmunds - Moorea Coral Reef LTER 
+# Metadata Provider:  Hillary Krumbholz - MCR LTER 
+# Contact:    - Information Manager MCR LTER  - hkrumbholz@ucsb.edu
+
+options(HTTPUserAgent = "EDI_CodeGen")
+	      
+# URL for table 1 (simple cover: coral / macroalgae / sand / millepora / ctb)
+benthic_simple_url <- 
+  "https://pasta.lternet.edu/package/data/eml/knb-lter-mcr/1038/14/b7ca625d17a5630441af8c229cc0ab92"
+
+benthic_simple_file <- tempfile()
+
+try(
+  download.file(
+    benthic_simple_url, 
+    benthic_simple_file,
+    method = "curl",
+    extra = paste0(' -A "', getOption("HTTPUserAgent"), '"')
+  ),
+  silent = TRUE
+)
+
+if (is.na(file.size(benthic_simple_file))) {
+  download.file(benthic_simple_url, benthic_simple_file, method = "auto")
+}
+
+# Read cleanly
+benthic_simple_raw <- read_csv(
+  benthic_simple_file,
+  skip = 1,
+  col_names = c(
+    "year", "site", "habitat", "depth", "quad", "patch",
+    "coral", "macroalgae", "sand", "millepora", "ctb",
+    "sub_squares", "note"
+  ),
+  na = c("na", "NA", "BW", "")
+)
+
+unlink(benthic_simple_file)
+
+benthic_simple <- benthic_simple_raw %>%
+  mutate(
+    site    = as.factor(site),
+    habitat = as.factor(habitat),
+    quad    = as.factor(quad),
+    patch   = as.factor(patch),
+    note    = as.factor(note),
+    depth   = suppressWarnings(as.numeric(depth)),
+    across(where(is.character))  # ensures numeric cols clean
+  )
+
+```
+
+5.2 Process downloaded benthic cover data and map to sites
+```{r}
+# 1) Filter to backreef/lagoon habitat and summarise by site
+benthic_br_site <- benthic_simple %>%
+  # keep lagoon/backreef habitats; tweak this if you see slightly different labels
+  filter(year > 2016,
+          grepl("back", habitat, ignore.case = TRUE) | 
+         grepl("lagoon", habitat, ignore.case = TRUE)) %>%
+  mutate(
+    # Make sure site is character, then create LTER-style ID
+    lter_site = as.character(site)
+  ) %>%
+  group_by(lter_site) %>%
+  summarise(
+    coral_cover      = mean(coral,      na.rm = TRUE),
+    macroalgae_cover = mean(macroalgae, na.rm = TRUE),
+    sand_cover       = mean(sand,       na.rm = TRUE),
+    millepora_cover  = mean(millepora,  na.rm = TRUE),
+    ctb_cover        = mean(ctb,        na.rm = TRUE),
+    .groups = "drop"
+  )
+
+benthic_br_site
+
+benthic_long <- benthic_br_site %>%
+  pivot_longer(
+    cols = -lter_site,
+    names_to = "cover_type",
+    values_to = "percent_cover"
+  )
+
+benthic_cover <- ggplot(benthic_long, aes(x = lter_site, y = percent_cover, fill = cover_type)) +
+  geom_col(color = "white", linewidth = 0.3) +
+  scale_fill_brewer(palette = "Set2") +
+  labs(
+    #title = "Benthic Cover Composition by Site",
+    x = "LTER Site",
+    y = "Percent Cover",
+    fill = "Benthic Group"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+benthic_cover
+
+ggsave(
+  filename = "Output/benthic_cover_plot.png",
+  plot = benthic_cover,
+  device = "png",
+  width = 5,     # adjust width in inches
+  height = 3,     # adjust height in inches
+  units = "in"
+)
+
+
+
+backreef_coords <- tribble(
+  ~site,    ~long,        ~lat,
+  "LTER_1", -149.8425765, -17.47823787,
+  "LTER_2", -149.8033863, -17.47700229,
+  "LTER_3", -149.7643003, -17.51396455,
+  "LTER_4", -149.7696695, -17.54318109,
+  "LTER_5", -149.8714356, -17.57932994,
+  "LTER_6", -149.9210026, -17.52112157
+)
+
+# Join coordinates with benthic means
+backreef_benthic <- backreef_coords %>%
+  left_join(benthic_br_site, by = c("site" = "lter_site"))
+
+## 1. Coordinate matrices: PH sites and backreef sites ----
+
+# Make sure 'sites' has columns: site.name, long, lat
+# And 'backreef_benthic' has: site, long, lat, coral_cover, macroalgae_cover, ctb_cover, sand_cover, millepora_cover
+
+ph_coords       <- as.matrix(sites[, c("long", "lat")])
+backreef_coords <- as.matrix(backreef_benthic[, c("long", "lat")])
+
+## 2. Distance matrix + nearest neighbor index ----
+
+# Distance matrix (meters): rows = PH sites, cols = LTER backreef sites
+dist_mat <- distm(ph_coords, backreef_coords, fun = distHaversine)
+
+# Index of nearest backreef site for each PH site
+nn_idx <- apply(dist_mat, 1, which.min)
+
+# Minimum distance (m) to the matched backreef site
+dist_to_br_m <- apply(dist_mat, 1, min)
+
+## 3. Attach nearest backreef benthic info to PH sites ----
+
+sites_benthic <- sites %>%
+  mutate(
+    br_site             = backreef_benthic$site[nn_idx],
+    br_long             = backreef_benthic$long[nn_idx],
+    br_lat              = backreef_benthic$lat[nn_idx],
+    coral_cover_br      = backreef_benthic$coral_cover[nn_idx],
+    macroalgae_cover_br = backreef_benthic$macroalgae_cover[nn_idx],
+    ctb_cover_br        = backreef_benthic$ctb_cover[nn_idx],
+    sand_cover_br       = backreef_benthic$sand_cover[nn_idx],
+    millepora_cover_br  = backreef_benthic$millepora_cover[nn_idx],
+    dist_to_br_m        = dist_to_br_m
+  )
+
+## 4. Inspect the mapping ----
+
+sites_benthic %>%
+  select(site.name, shore,
+         br_site, dist_to_br_m,
+         coral_cover_br, macroalgae_cover_br, ctb_cover_br,
+         sand_cover_br, millepora_cover_br)
+
+str(sites_benthic)
+
+```
+
+6. Fish functional groups: backreef fish, block-level
+```{r}
+# Package ID: knb-lter-mcr.6.64 Cataloging System:https://pasta.edirepository.org.
+# Data set title: MCR LTER: Coral Reef: Long-term Population and Community Dynamics: Fishes, ongoing since 2005.
+# Data set creator:    - Moorea Coral Reef LTER 
+# Data set creator:  Andrew Brooks - Moorea Coral Reef LTER 
+# Metadata Provider:    - Moorea Coral Reef LTER 
+# Contact:    - Information Manager Moorea Coral Reef LTER  - mcrlter@msi.ucsb.edu
+
+#Read the main fish observations table (dt1 → fish_main)
+
+options(HTTPUserAgent = "EDI_CodeGen")
+
+## ---------- Main fish table ----------
+
+fish_main_url  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-mcr/6/64/ac2c7a859ce8595ec1339e8530b9ba50"
+fish_main_file <- tempfile()
+
+try(
+  download.file(
+    fish_main_url,
+    fish_main_file,
+    method = "curl",
+    extra  = paste0(' -A "', getOption("HTTPUserAgent"), '"')
+  ),
+  silent = TRUE
+)
+
+if (is.na(file.size(fish_main_file))) {
+  download.file(fish_main_url, fish_main_file, method = "auto")
+}
+
+fish_main <- read.csv(
+  fish_main_file,
+  header = FALSE,
+  skip   = 1,
+  sep    = ",",
+  quote  = '"',
+  col.names = c(
+    "Year",
+    "Date",
+    "Start",
+    "End",
+    "Location",
+    "Site",
+    "Habitat",
+    "Depth",
+    "Transect",
+    "Swath",
+    "Taxonomy",
+    "Family",
+    "Count",
+    "Total_Length",
+    "Length_Anomaly",
+    "Biomass",
+    "Comment",
+    "Coarse_Trophic",
+    "Fine_Trophic",
+    "Cloud_Cover",
+    "Wind_Velocity",
+    "Sea_State",
+    "Swell",
+    "Visibility",
+    "Surge",
+    "Diver"
+  ),
+  stringsAsFactors = FALSE,
+  check.names = TRUE
+)
+
+unlink(fish_main_file)
+
+#Clean up types & sentinel values
+fish_main <- fish_main %>%
+  mutate(
+    Date  = as.Date(Date, format = "%Y-%m-%d"),
+    Start = as.factor(Start),
+    End   = as.factor(End),
+
+    Location = as.factor(Location),
+    Site     = as.factor(Site),
+    Habitat  = as.factor(Habitat),
+    Transect = as.factor(Transect),
+    Swath    = as.factor(Swath),
+
+    Taxonomy = ifelse(Taxonomy == "No fish observed", NA, Taxonomy),
+    Taxonomy = as.factor(Taxonomy),
+    Family   = as.factor(Family),
+
+    # numeric fields
+    Depth         = suppressWarnings(as.numeric(Depth)),
+    Count         = suppressWarnings(as.numeric(Count)),
+    Total_Length  = suppressWarnings(as.numeric(Total_Length)),
+    Biomass       = suppressWarnings(as.numeric(Biomass)),
+    Cloud_Cover   = suppressWarnings(as.numeric(Cloud_Cover)),
+    Wind_Velocity = suppressWarnings(as.numeric(Wind_Velocity)),
+    Sea_State     = suppressWarnings(as.numeric(Sea_State)),
+    Swell         = suppressWarnings(as.numeric(Swell)),
+    Visibility    = suppressWarnings(as.numeric(Visibility)),
+    Surge         = suppressWarnings(as.numeric(Surge)),
+
+    Length_Anomaly = ifelse(Length_Anomaly == "na", NA, Length_Anomaly),
+    Length_Anomaly = as.factor(Length_Anomaly),
+
+    Comment       = ifelse(Comment == "NA", NA, Comment),
+    Comment       = as.factor(Comment),
+
+    Coarse_Trophic = ifelse(Coarse_Trophic == "na", NA, Coarse_Trophic),
+    Coarse_Trophic = as.factor(Coarse_Trophic),
+    Fine_Trophic   = ifelse(Fine_Trophic == "na", NA, Fine_Trophic),
+    Fine_Trophic   = as.factor(Fine_Trophic),
+
+    # sentinel → NA for lengths, biomass, visibility
+    Total_Length = ifelse(Total_Length == -1, NA, Total_Length),
+    Biomass      = ifelse(Biomass %in% c(-1), NA, Biomass),
+    Visibility   = ifelse(Visibility == -1, NA, Visibility),
+
+    Diver = as.factor(Diver)
+  )
+
+
+```
+
+6.1 Filter fish data to backreef, set transect area, define trophic groups
+```{r}
+
+# Ensure Swath is numeric width (meters)
+fish_main2 <- fish_main %>%
+  mutate(
+    Swath = as.numeric(as.character(Swath)),
+    transect_length_m = 50,
+    area_m2 = Swath * transect_length_m
+  )
+
+fish_backreef <- fish_main2 %>%
+  filter(
+    Habitat %in% c("Backreef"),
+    Year >= 2020,
+    !is.na(Biomass),
+    !is.na(Count),
+    area_m2 > 0
+  ) %>%
+  mutate(
+    biomass_g = Biomass * Count,
+    Site = gsub(" ", "_", Site),
+    trophic_group = case_when(
+      Fine_Trophic == "Herbivore/Detritivore" ~ "Herbivore/Detritivore",
+      Fine_Trophic == "Corallivore" ~ "Corallivore",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(trophic_group))
+
+
+```
+
+6.2 Calculate fish biomass per m² per transect, then average per LTER backreef site
+```{r}
+# Biomass per m² at the TRANSECT level
+fish_backreef_transect <- fish_backreef %>%
+  group_by(Site, Year, Date, Transect, area_m2, trophic_group) %>%
+  summarise(
+    biomass_g = sum(biomass_g, na.rm = TRUE),
+    .groups = "drop_last"
+  ) %>%
+  mutate(biomass_g_m2 = biomass_g / area_m2) %>%
+  ungroup()
+
+## 1. Summarise biomass by site, year, and trophic group
+fish_site_year_troph <- fish_backreef_transect %>%
+  group_by(Site, Year, trophic_group) %>%
+  summarise(
+    mean_biomass_g_m2 = mean(biomass_g_m2, na.rm = TRUE),
+    sd_biomass_g_m2   = sd(biomass_g_m2, na.rm = TRUE),
+    n_transects       = dplyr::n(),
+    se_biomass_g_m2   = sd_biomass_g_m2 / sqrt(n_transects)
+  ) %>%
+  ungroup()
+
+## 2. Plot: stacked biomass by trophic group, per site, per year
+trophic.colors <- c("coral", "darkgreen")
+
+fishes <- ggplot(fish_site_year_troph,
+       aes(x = Site,
+           y = mean_biomass_g_m2,
+           fill = trophic_group)) +
+  geom_col() +
+  scale_fill_manual (values=trophic.colors)+
+  facet_wrap(~ Year, nrow = 1) +
+  labs(
+    x = "Site",
+    y = "Mean fish biomass (g m²)",
+    fill = "Trophic group",
+    #title = "Back reef fish biomass by site, year, and trophic group"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+fishes
+
+ggsave(
+  filename = "Output/fishes_plot.png",
+  plot = fishes,
+  device = "png",
+  width = 8,     # adjust width in inches
+  height = 4,     # adjust height in inches
+  units = "in"
+)
+
+
+# Now summarise to SITE level across years & transects
+fish_backreef_site <- fish_backreef_transect %>%
+  group_by(Site, trophic_group) %>%
+  summarise(
+    mean_biomass_g_m2 = mean(biomass_g_m2, na.rm = TRUE),
+    sd_biomass_g_m2   = sd(biomass_g_m2, na.rm = TRUE),
+    n_transects       = n(),
+    .groups = "drop"
+  ) %>%
+  # Wide format: separate columns for herbivore / corallivore biomass
+  pivot_wider(
+    names_from = trophic_group,
+    values_from = c(mean_biomass_g_m2, sd_biomass_g_m2, n_transects),
+    names_glue = "fish_{trophic_group}_{.value}"
+  )
+
+fish_backreef_site
+
+
+ggplot(fish_backreef_site, aes(x = Site, y = fish_Corallivore_mean_biomass_g_m2)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
+  geom_errorbar(
+    aes(ymin = fish_Corallivore_mean_biomass_g_m2 - fish_Corallivore_sd_biomass_g_m2, ymax = fish_Corallivore_mean_biomass_g_m2 + fish_Corallivore_sd_biomass_g_m2),
+    width = 0.2,
+    position = position_dodge(width = 0.7)
+  ) +
+  scale_fill_brewer(palette = "Set2") +
+  labs(
+    title = "Corallivore Fish Biomass (mean ± SD) by Site",
+    y = "Biomass (g m⁻²)",
+    x = "LTER Site"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+#Fix the fish column names with /
+fish_backreef_site <- fish_backreef_site %>%
+  rename(
+    fish_HerbDet_mean_biomass_g_m2 = `fish_Herbivore/Detritivore_mean_biomass_g_m2`,
+    fish_HerbDet_sd_biomass_g_m2   = `fish_Herbivore/Detritivore_sd_biomass_g_m2`,
+    fish_HerbDet_n_transects       = `fish_Herbivore/Detritivore_n_transects`
+  )
+
+ggplot(fish_backreef_site, aes(x = Site, y = fish_HerbDet_mean_biomass_g_m2)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
+  geom_errorbar(
+    aes(ymin = fish_HerbDet_mean_biomass_g_m2 - fish_HerbDet_sd_biomass_g_m2, ymax = fish_HerbDet_mean_biomass_g_m2 + fish_HerbDet_sd_biomass_g_m2),
+    width = 0.2,
+    position = position_dodge(width = 0.7)
+  ) +
+  scale_fill_brewer(palette = "Set2") +
+  labs(
+    title = "Herbivore/Detritivore Fish Biomass (mean ± SD) by Site",
+    y = "Biomass (g m⁻²)",
+    x = "LTER Site"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+6.3 Map fish metrics onto coral sites
+```{r}
+# sites_benthic must have: site.name, br_site
+sites_temp_br <- sites_temp %>%
+  left_join(
+    sites_benthic %>% select(site.name, br_site),
+    by = "site.name"
+  )
+
+str(sites_temp_br)
+
+sites_temp_fish <- sites_temp_br %>%
+  left_join(
+    fish_backreef_site,
+    by = c("br_site" = "Site")
+  )
+
+str(sites_temp_fish)
+
+sites_fish <- sites_temp_fish %>%
+  select(
+    site.name, shore, br_site,
+    fish_Corallivore_mean_biomass_g_m2,
+    fish_HerbDet_mean_biomass_g_m2
+  )
+
+str(sites_fish)
+
+```
+
+7. Nutrients: Turbinaria N high-resolution, lagoon-wide
+7.1 clean import + mapping of high-res Turbinaria CHN
+```{r}
+# Package ID: knb-lter-mcr.1047.1 Cataloging System:https://pasta.edirepository.org.
+# Data set title: MCR LTER: Coral Reef: Turbinaria CHN from a spatially explicit sampling campaign in lagoons of Moorea, French Polynesia.
+# Data set creator:    - Moorea Coral Reef LTER 
+# Data set creator:  Thomas Adam - Moorea Coral Reef LTER 
+# Data set creator:  Christian John - University of California, Santa Barbara 
+# Data set creator:  Deron Burkepile - Moorea Coral Reef LTER 
+# Metadata Provider:    - Moorea Coral Reef LTER 
+# Contact:    - Information Manager Moorea Coral Reef LTER  - mcrlter@msi.ucsb.edu
+
+options(HTTPUserAgent = "EDI_CodeGen")
+
+## --------------------------------------------------
+## TABLE 1: Site metadata (coords, habitat, distance)
+## --------------------------------------------------
+url_sites <- "https://pasta.lternet.edu/package/data/eml/knb-lter-mcr/1047/1/45ed57442847daf0fb6a7dbccac56b53"
+tmp_sites <- tempfile()
+try(download.file(url_sites, tmp_sites,
+                  method = "curl",
+                  extra  = paste0(' -A "', getOption("HTTPUserAgent"), '"')))
+if (is.na(file.size(tmp_sites))) {
+  download.file(url_sites, tmp_sites, method = "auto")
+}
+
+turbinaria_sites <- read.csv(
+  tmp_sites,
+  header   = FALSE,
+  skip     = 1,
+  sep      = ",",
+  quote    = '"',
+  col.names = c(
+    "Site",
+    "Longitude",
+    "Latitude",
+    "Habitat",
+    "Island_shore",
+    "Distance_from_shore",
+    "Distance_from_crest",
+    "Watershed_area",
+    "Cleared_area"
+  ),
+  check.names = TRUE,
+  stringsAsFactors = FALSE
+)
+
+unlink(tmp_sites)
+
+turbinaria_sites <- turbinaria_sites %>%
+  mutate(
+    Site                = factor(Site),
+    Habitat             = factor(Habitat),
+    Island_shore        = factor(Island_shore),
+    Longitude           = as.numeric(Longitude),
+    Latitude            = as.numeric(Latitude),
+    Distance_from_shore = as.numeric(Distance_from_shore),
+    Distance_from_crest = as.numeric(Distance_from_crest),
+    Watershed_area      = as.numeric(Watershed_area),
+    Cleared_area        = as.numeric(Cleared_area)
+  )
+
+str(turbinaria_sites)
+
+## --------------------------------------------------
+## TABLE 2: Full CHN measurements (Percent_N, C:N)
+## --------------------------------------------------
+url_chn <- "https://pasta.lternet.edu/package/data/eml/knb-lter-mcr/1047/1/098ecd51f703743ef38e4db4967778cb"
+tmp_chn <- tempfile()
+try(download.file(url_chn, tmp_chn,
+                  method = "curl",
+                  extra  = paste0(' -A "', getOption("HTTPUserAgent"), '"')))
+if (is.na(file.size(tmp_chn))) {
+  download.file(url_chn, tmp_chn, method = "auto")
+}
+
+turbinaria_chn <- read.csv(
+  tmp_chn,
+  header   = FALSE,
+  skip     = 1,
+  sep      = ",",
+  quote    = '"',
+  col.names = c(
+    "Site",
+    "FieldSeason",
+    "Date",
+    "Year",
+    "Month",
+    "Day",
+    "Weight_ug",
+    "Percent_C",
+    "Percent_H",
+    "Percent_N",
+    "C_to_N_ratio"
+  ),
+  check.names = TRUE,
+  stringsAsFactors = FALSE
+)
+
+unlink(tmp_chn)
+
+turbinaria_chn <- turbinaria_chn %>%
+  mutate(
+    Site        = factor(Site),
+    FieldSeason = factor(FieldSeason),
+    Date        = as.Date(Date, format = "%Y-%m-%d"),
+    Year        = as.integer(Year),
+    Month       = as.numeric(Month),
+    Day         = as.numeric(Day),
+    Weight_ug   = as.numeric(Weight_ug),
+    Percent_C   = as.numeric(Percent_C),
+    Percent_H   = as.numeric(Percent_H),
+    Percent_N   = as.numeric(Percent_N),
+    C_to_N_ratio = as.numeric(C_to_N_ratio)
+  )
+
+str(turbinaria_chn)
+
+
+turbinaria_chn <- turbinaria_chn %>%
+  filter(Year > 2016)
+
+```
+
+7.2 Summarize data and map onto the coral density site
+```{r}
+## --------------------------------------------------
+## 1. Summarise Turbinaria %N by Turbinaria Site
+## --------------------------------------------------
+
+turb_N_site <- turbinaria_chn %>%
+  group_by(Site) %>%
+  summarise(
+    turb_N_mean_pct = mean(Percent_N, na.rm = TRUE),
+    turb_N_sd_pct   = sd(Percent_N,   na.rm = TRUE),
+    turb_N_n_samples = sum(!is.na(Percent_N)),
+    Year_min        = min(Year, na.rm = TRUE),
+    Year_max        = max(Year, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  # add coordinates + basic metadata
+  left_join(
+    turbinaria_sites %>%
+      select(
+        Site,
+        turb_long         = Longitude,
+        turb_lat          = Latitude,
+        turb_Habitat      = Habitat,
+        turb_Island_shore = Island_shore
+      ),
+    by = "Site"
+  ) %>%
+  # keep only sites with coordinates and N
+  filter(!is.na(turb_long), !is.na(turb_lat), !is.na(turb_N_mean_pct))
+
+## --------------------------------------------------
+## 2. Coral sites from sites_wave
+## --------------------------------------------------
+
+coral_sites <- sites_wave %>%
+  select(site.name, long, lat, shore) %>%
+  distinct() %>%
+  filter(!is.na(long), !is.na(lat))
+
+## --------------------------------------------------
+## 3. Haversine distance matrix (coral × Turbinaria)
+## --------------------------------------------------
+
+# Matrices of lon/lat (in degrees) for geosphere
+coral_coords <- as.matrix(coral_sites[, c("long", "lat")])
+turb_coords  <- as.matrix(turb_N_site[, c("turb_long", "turb_lat")])
+
+# distHaversine can take vectors or matrices; use outer-style apply
+# Build an n_coral × n_turb matrix of distances (m)
+dist_mat <- sapply(
+  1:nrow(turb_coords),
+  function(j) distHaversine(coral_coords, turb_coords[j, ])
+)
+
+# dist_mat[i, j] = distance from coral_sites[i, ] to turb_N_site[j, ]
+
+## --------------------------------------------------
+## 4. For each coral site, find nearest Turbinaria site
+## --------------------------------------------------
+
+# index of nearest Turbinaria site per coral site
+nn_index <- max.col(-dist_mat)  # argmin via argmax of negative
+
+# minimum distance in meters
+dist_min_m <- dist_mat[cbind(seq_len(nrow(coral_sites)), nn_index)]
+
+## --------------------------------------------------
+## 5. Build coral_turb lookup table
+## --------------------------------------------------
+
+coral_turb <- coral_sites %>%
+  bind_cols(
+    turb_N_site[nn_index, c("Site",
+                            "turb_N_mean_pct",
+                            "turb_N_sd_pct",
+                            "turb_N_n_samples")] %>%
+      rename(
+        turb_site = Site
+      )
+  ) %>%
+  mutate(
+    dist_to_turb_m = dist_min_m
+  )
+
+# Inspect result
+str(coral_turb)
+head(coral_turb)
+
+coral_turb$site.name <- factor(
+  coral_turb$site.name,
+  levels = c("S2", "S3", "S4", "S5", "S6", "S9", "S11", "S12", "S14", "S15", "S18" )
+)
+
+
+#  barplot: mean ± SD by site
+nut_turb <- ggplot(coral_turb, aes(x = site.name, y = turb_N_mean_pct)) +
+  geom_col(fill = "grey70", width = 0.6) +
+  geom_errorbar(
+    aes(ymin = turb_N_mean_pct - turb_N_sd_pct,
+        ymax = turb_N_mean_pct + turb_N_sd_pct),
+    width = 0.2
+  ) +
+  labs(
+    #title = "Turbinaria tissue %N by coral survey site",
+    x = "Site",
+    y = "Turbinaria %N (mean ± SD)"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+nut_turb 
+
+ggsave(
+  filename = "Output/nutrients_turbinaria_plot.png",
+  plot = nut_turb ,
+  device = "png",
+  width = 8,     # adjust width in inches
+  height = 4,     # adjust height in inches
+  units = "in"
+)
+
+
+```
+
+8. fDOM Dissolved Organic Matter
+8.1 clean fDOM import 
+```{r}
+# Package ID: knb-lter-mcr.1049.1 Cataloging System:https://pasta.edirepository.org.
+# Data set title: MCR LTER: Coral Reef: Water Column fDOM in lagoons of Moorea, French Polynesia.
+# Data set creator:    - Moorea Coral Reef LTER 
+# Data set creator:  Craig Nelson - University of Hawaiʻi at Mānoa 
+# Data set creator:  Sean Swift - University of Hawaiʻi at Mānoa 
+# Metadata Provider:    - Moorea Coral Reef LTER 
+# Contact:    - Information Manager Moorea Coral Reef LTER  - mcrlter@msi.ucsb.edu
+
+## -------------------------------------------------------------
+## fDOM data: site metadata and sample-level observations
+## (non-overlapping names, no attach/detach, tidy-friendly)
+## -------------------------------------------------------------
+
+options(HTTPUserAgent = "EDI_CodeGen")
+
+library(dplyr)
+
+### 1. fDOM site metadata (coordinates, watershed, etc.) ----
+
+inUrl_fdom_sites  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-mcr/1049/1/45ed57442847daf0fb6a7dbccac56b53"
+tmp_fdom_sites    <- tempfile()
+
+try(download.file(
+  inUrl_fdom_sites,
+  tmp_fdom_sites,
+  method = "curl",
+  extra  = paste0(' -A "', getOption("HTTPUserAgent"), '"')
+))
+if (is.na(file.size(tmp_fdom_sites))) {
+  download.file(inUrl_fdom_sites, tmp_fdom_sites, method = "auto")
+}
+
+fdom_sites_raw <- read.csv(
+  tmp_fdom_sites,
+  header    = FALSE,
+  skip      = 1,
+  sep       = ",",
+  quote     = '"',
+  col.names = c(
+    "Site",
+    "Longitude",
+    "Latitude",
+    "Habitat",
+    "Island_shore",
+    "Distance_from_shore",
+    "Distance_from_crest",
+    "Watershed_area",
+    "Cleared_area"
+  ),
+  check.names = TRUE
+)
+
+unlink(tmp_fdom_sites)
+
+## Basic type cleaning
+fdom_sites_raw <- fdom_sites_raw %>%
+  mutate(
+    Site                = as.factor(Site),
+    Habitat             = as.factor(Habitat),
+    Island_shore        = as.factor(Island_shore),
+    Longitude           = as.numeric(Longitude),
+    Latitude            = as.numeric(Latitude),
+    Distance_from_shore = as.numeric(Distance_from_shore),
+    Distance_from_crest = as.numeric(Distance_from_crest),
+    Watershed_area      = as.numeric(Watershed_area),
+    Cleared_area        = as.numeric(Cleared_area)
+  )
+
+## Namespaced version to avoid clashes with other objects
+fdom_sites <- fdom_sites_raw %>%
+  rename(
+    fdom_site          = Site,
+    fdom_long          = Longitude,
+    fdom_lat           = Latitude,
+    fdom_habitat       = Habitat,
+    fdom_shore_cat     = Island_shore,
+    fdom_dist_shore_m  = Distance_from_shore,
+    fdom_dist_crest_m  = Distance_from_crest,
+    fdom_watershed_km2 = Watershed_area,
+    fdom_cleared_km2   = Cleared_area
+  )
+
+str(fdom_sites)
+
+
+### 2. fDOM sample-level data (HIX, FI, components, etc.) ----
+
+inUrl_fdom_obs  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-mcr/1049/1/c2fc28a7d3f0cec75aa163ac646d65be"
+tmp_fdom_obs    <- tempfile()
+
+try(download.file(
+  inUrl_fdom_obs,
+  tmp_fdom_obs,
+  method = "curl",
+  extra  = paste0(' -A "', getOption("HTTPUserAgent"), '"')
+))
+if (is.na(file.size(tmp_fdom_obs))) {
+  download.file(inUrl_fdom_obs, tmp_fdom_obs, method = "auto")
+}
+
+fdom_obs_raw <- read.csv(
+  tmp_fdom_obs,
+  header    = FALSE,
+  skip      = 1,
+  sep       = ",",
+  quote     = '"',
+  col.names = c(
+    "Site",
+    "FieldSeason",
+    "Date",
+    "Year",
+    "Month",
+    "Day",
+    "HIX",
+    "BIX",
+    "M.C",
+    "FI",
+    "Ultra.Violet.Humic.like",
+    "Marine.Humic.like",
+    "Visible.Humic.like",
+    "Tryptophan.like",
+    "Tyrosine.like",
+    "Lignin.like"
+  ),
+  check.names = TRUE
+)
+
+unlink(tmp_fdom_obs)
+
+## Basic type cleaning
+fdom_obs_raw <- fdom_obs_raw %>%
+  mutate(
+    Site         = as.factor(Site),
+    FieldSeason  = as.factor(FieldSeason),
+    Date         = as.Date(Date, format = "%Y-%m-%d"),
+    Year         = as.integer(Year),
+    Month        = as.integer(Month),
+    Day          = as.integer(Day),
+    HIX          = as.numeric(HIX),
+    BIX          = as.numeric(BIX),
+    M.C          = as.numeric(M.C),
+    FI           = as.numeric(FI),
+    Ultra.Violet.Humic.like = as.numeric(Ultra.Violet.Humic.like),
+    Marine.Humic.like       = as.numeric(Marine.Humic.like),
+    Visible.Humic.like      = as.numeric(Visible.Humic.like),
+    Tryptophan.like         = as.numeric(Tryptophan.like),
+    Tyrosine.like           = as.numeric(Tyrosine.like),
+    Lignin.like             = as.numeric(Lignin.like)
+  )
+
+## Namespaced version
+fdom_obs <- fdom_obs_raw %>%
+  rename(
+    fdom_site          = Site,
+    fdom_field_season  = FieldSeason,
+    fdom_date          = Date,
+    fdom_year          = Year,
+    fdom_month         = Month,
+    fdom_day           = Day,
+    fdom_HIX           = HIX,
+    fdom_BIX           = BIX,
+    fdom_MC            = M.C,
+    fdom_FI            = FI,
+    fdom_UV_humic      = Ultra.Violet.Humic.like,
+    fdom_marine_humic  = Marine.Humic.like,
+    fdom_vis_humic     = Visible.Humic.like,
+    fdom_tryptophan    = Tryptophan.like,
+    fdom_tyrosine      = Tyrosine.like,
+    fdom_lignin        = Lignin.like
+  )
+
+str(fdom_obs)
+
+## Recalculate MC for issue in code of original paper.
+
+
+fdom_obs <- fdom_obs %>%
+  mutate(fdom_MC_corr = fdom_marine_humic/fdom_vis_humic)
+
+
+
+```
+8.2 Map fDOM to coral density sites
+```{r}
+
+## ------------------------------------------------------------
+## 1. Summarise fDOM metrics per fDOM station
+## ------------------------------------------------------------
+
+fdom_site_summary <- fdom_obs %>%
+  group_by(fdom_site) %>%
+  summarise(
+    fdom_HIX_mean          = mean(fdom_HIX, na.rm = TRUE),
+    fdom_BIX_mean          = mean(fdom_BIX, na.rm = TRUE),
+    fdom_MC_mean           = mean(fdom_MC,  na.rm = TRUE),
+    fdom_MC_corr_mean      = mean(fdom_MC_corr,  na.rm = TRUE),
+    fdom_FI_mean           = mean(fdom_FI,  na.rm = TRUE),
+    fdom_UV_humic_mean     = mean(fdom_UV_humic,     na.rm = TRUE),
+    fdom_marine_humic_mean = mean(fdom_marine_humic, na.rm = TRUE),
+    fdom_vis_humic_mean    = mean(fdom_vis_humic,    na.rm = TRUE),
+    fdom_tryptophan_mean   = mean(fdom_tryptophan,   na.rm = TRUE),
+    fdom_tyrosine_mean     = mean(fdom_tyrosine,     na.rm = TRUE),
+    fdom_lignin_mean       = mean(fdom_lignin,       na.rm = TRUE),
+    fdom_n_samples         = dplyr::n(),
+    .groups = "drop"
+  )
+
+## Attach coordinates + habitat info to those summaries
+fdom_sites_full <- fdom_sites %>%
+  inner_join(fdom_site_summary, by = "fdom_site")
+
+## ------------------------------------------------------------
+## 2. Extract unique coral-density sites with coords
+## ------------------------------------------------------------
+
+ph_sites <- sites %>%
+  select(site.name, shore, long, lat) %>%
+  distinct()
+
+## ------------------------------------------------------------
+## 3. Nearest-neighbor mapping: PH sites -> fDOM stations
+## ------------------------------------------------------------
+
+# All pairwise combinations
+ph_fdom_pairs <- tidyr::crossing(
+  ph_sites %>% rename(ph_site = site.name),
+  fdom_sites_full
+)
+
+# Great-circle distance in meters
+ph_fdom_pairs <- ph_fdom_pairs %>%
+  mutate(
+    dist_to_fdom_m = distHaversine(
+      cbind(long, lat),
+      cbind(fdom_long, fdom_lat)
+    )
+  )
+
+# For each PH site, keep the closest fDOM station
+sites_fdom <- ph_fdom_pairs %>%
+  group_by(ph_site) %>%
+  slice_min(dist_to_fdom_m, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  rename(site.name = ph_site) %>%
+  select(
+    site.name, shore, long, lat,
+    fdom_site, fdom_long, fdom_lat, fdom_habitat, fdom_shore_cat,
+    dist_to_fdom_m,
+    fdom_HIX_mean, fdom_BIX_mean, fdom_MC_mean, fdom_MC_corr_mean, fdom_FI_mean,
+    fdom_UV_humic_mean, fdom_marine_humic_mean, fdom_vis_humic_mean,
+    fdom_tryptophan_mean, fdom_tyrosine_mean, fdom_lignin_mean,
+    fdom_n_samples
+  )
+
+## Quick check
+print(sites_fdom)
+
+# Select only the fDOM metrics (exclude n_samples)
+fdom_metrics <- sites_fdom %>% 
+  select(site.name,
+         starts_with("fdom_")) %>%
+  select(-fdom_site) %>%
+  select(-fdom_long)%>%
+  select(-fdom_lat)%>%
+  select(-fdom_habitat)%>%
+  select(-fdom_shore_cat)%>%
+  select(-fdom_n_samples)
+
+# Pivot longer
+fdom_long <- fdom_metrics %>%
+  pivot_longer(
+    cols = -site.name,
+    names_to = "metric",
+    values_to = "value"
+  )
+
+# Plot faceted
+ggplot(fdom_long, aes(x = site.name, y = value)) +
+  geom_col(fill = "gray", width = 0.7) +
+  facet_wrap(~ metric, scales = "free_y", ncol = 3) +
+  labs(
+    title = "fDOM metrics by site",
+    x = "Site",
+    y = "Value"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(size = 10, face = "bold")
+  )
+
+fdom_long2 <- sites_fdom %>% 
+  select(site.name,shore,fdom_HIX_mean,fdom_BIX_mean,fdom_MC_corr_mean) %>%
+  pivot_longer(
+    cols = -c(site.name, shore),
+    names_to = "metric",
+    values_to = "value"
+  )
+
+fdom_long2$site.name <- factor(
+  fdom_long2$site.name,
+  levels = c("S2", "S3", "S4", "S5", "S6", "S9", "S11", "S12", "S14", "S15", "S18" )
+)
+
+fdom <- ggplot(fdom_long2, aes(x = site.name, y = value)) +
+  geom_col(position = "dodge", width = 0.7) +
+  facet_wrap(~ metric, scales = "free_y", ncol = 3) +
+  labs(
+   # title = "fDOM metrics by site",
+    x = "Site",
+    y = "Value",
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(size = 10, face = "bold")
+  )
+fdom 
+
+ggsave(
+  filename = "Output/fDOM_plot.png",
+  plot = fdom  ,
+  device = "png",
+  width = 8,     # adjust width in inches
+  height = 4,     # adjust height in inches
+  units = "in"
+)
+
+```
+
+9. Seawater Chemistry data (N,Si,P)
+9.1 Import Seawater Chemistry data
+```{r}
+# Package ID: knb-lter-mcr.1048.1 Cataloging System:https://pasta.edirepository.org.
+# Data set title: MCR LTER: Coral Reef: Water Column nutrient data in lagoons of Moorea, French Polynesia.
+# Data set creator:    - Moorea Coral Reef LTER 
+# Data set creator:  Thomas Adam - Moorea Coral Reef LTER 
+# Data set creator:  Christian John - University of California, Santa Barbara 
+# Data set creator:  Rebecca Vega Thurber - University of California, Santa Barbara 
+# Data set creator:  Deron Burkepile - Moorea Coral Reef LTER 
+# Metadata Provider:   Information Manager - Moorea Coral Reef LTER 
+# Contact:    - Information Manager Moorea Coral Reef LTER  - mcrlter@msi.ucsb.edu
+
+## ============================================================
+## 1. IMPORT knb-lter-mcr.1048.1 (water-column nutrients)
+##    - Site metadata  (table 1)
+##    - Nutrient data  (table 2)
+## ============================================================
+
+options(HTTPUserAgent = "EDI_CodeGen")
+
+## ---- 1a. Site metadata ----
+nut_site_url  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-mcr/1048/1/45ed57442847daf0fb6a7dbccac56b53"
+nut_site_tmp  <- tempfile()
+
+try(download.file(nut_site_url, nut_site_tmp, method = "curl",
+                  extra = paste0(' -A "', getOption("HTTPUserAgent"), '"')))
+if (is.na(file.size(nut_site_tmp))) {
+  download.file(nut_site_url, nut_site_tmp, method = "auto")
+}
+
+nut_sites_raw <- read.csv(
+  nut_site_tmp,
+  header    = FALSE,
+  skip      = 1,
+  sep       = ",",
+  quote     = '"',
+  col.names = c(
+    "Site",
+    "Longitude",
+    "Latitude",
+    "Habitat",
+    "Island_shore",
+    "Distance_from_shore",
+    "Distance_from_crest",
+    "Watershed_area",
+    "Cleared_area"
+  ),
+  check.names = TRUE,
+  stringsAsFactors = FALSE
+)
+
+unlink(nut_site_tmp)
+
+# Basic type cleanup & rename with non-overlapping names
+nut_sites <- nut_sites_raw %>%
+  mutate(
+    Site              = factor(Site),
+    Habitat           = factor(Habitat),
+    Island_shore      = factor(Island_shore),
+    Longitude         = as.numeric(Longitude),
+    Latitude          = as.numeric(Latitude),
+    Distance_from_shore  = as.numeric(Distance_from_shore),
+    Distance_from_crest  = as.numeric(Distance_from_crest),
+    Watershed_area       = as.numeric(Watershed_area),
+    Cleared_area         = as.numeric(Cleared_area)
+  ) %>%
+  rename(
+    nut_site_id             = Site,
+    nut_long                = Longitude,
+    nut_lat                 = Latitude,
+    nut_habitat             = Habitat,
+    nut_island_shore        = Island_shore,
+    nut_dist_from_shore_m   = Distance_from_shore,
+    nut_dist_from_crest_m   = Distance_from_crest,
+    nut_watershed_area_km2  = Watershed_area,
+    nut_cleared_area_km2    = Cleared_area
+  )
+
+## ---- 1b. Nutrient measurements ----
+nut_data_url <- "https://pasta.lternet.edu/package/data/eml/knb-lter-mcr/1048/1/7c05cc39e4f71d6f49e0b0d592728e16"
+nut_data_tmp <- tempfile()
+
+try(download.file(nut_data_url, nut_data_tmp, method = "curl",
+                  extra = paste0(' -A "', getOption("HTTPUserAgent"), '"')))
+if (is.na(file.size(nut_data_tmp))) {
+  download.file(nut_data_url, nut_data_tmp, method = "auto")
+}
+
+nut_samples_raw <- read.csv(
+  nut_data_tmp,
+  header    = FALSE,
+  skip      = 1,
+  sep       = ",",
+  quote     = '"',
+  col.names = c(
+    "Site",
+    "FieldSeason",
+    "Date",
+    "Year",
+    "Month",
+    "Day",
+    "Phosphate",
+    "Silicate",
+    "Nitrite_plus_Nitrate",
+    "Ammonia",
+    "Notes"
+  ),
+  check.names = TRUE,
+  stringsAsFactors = FALSE
+)
+
+unlink(nut_data_tmp)
+
+# Parse dates & clean types, then rename columns
+nut_samples <- nut_samples_raw %>%
+  mutate(
+    Site        = factor(Site),
+    FieldSeason = factor(FieldSeason),
+    Date        = as.Date(Date, format = "%Y-%m-%d"),
+    Year        = as.integer(Year),
+    Month       = as.integer(Month),
+    Day         = as.integer(Day),
+    Phosphate   = as.numeric(Phosphate),
+    Silicate    = as.numeric(Silicate),
+    Nitrite_plus_Nitrate = as.numeric(Nitrite_plus_Nitrate),
+    Ammonia     = as.numeric(Ammonia),
+    N_P         = as.numeric(Nitrite_plus_Nitrate)+ as.numeric(Ammonia)/as.numeric(Phosphate),
+    Notes       = if (!is.null(Notes)) factor(Notes) else NULL
+  ) %>%
+  rename(
+    nut_site_id    = Site,
+    nut_season     = FieldSeason,
+    nut_date       = Date,
+    nut_PO4_uM     = Phosphate,
+    nut_SiO4_uM    = Silicate,
+    nut_NOx_uM     = Nitrite_plus_Nitrate,
+    nut_NH4_uM     = Ammonia,
+    nut_N_P        = N_P
+  )
+
+## ============================================================
+## 2. SITE-LEVEL MEAN NUTRIENTS
+## ============================================================
+
+nut_site_means <- nut_samples %>%
+  group_by(nut_site_id) %>%
+  summarise(
+    nut_PO4_mean_uM  = mean(nut_PO4_uM,  na.rm = TRUE),
+    nut_SiO4_mean_uM = mean(nut_SiO4_uM, na.rm = TRUE),
+    nut_NOx_mean_uM  = mean(nut_NOx_uM,  na.rm = TRUE),
+    nut_NH4_mean_uM  = mean(nut_NH4_uM,  na.rm = TRUE),
+    nut_N_P_mean = mean(nut_N_P,  na.rm = TRUE),
+    nut_n_samples    = dplyr::n(),
+    .groups = "drop"
+  )
+
+nut_sites_summary <- nut_site_means %>%
+  left_join(
+    nut_sites %>%
+      select(
+        nut_site_id,
+        nut_long,
+        nut_lat,
+        nut_habitat,
+        nut_island_shore,
+        nut_dist_from_shore_m,
+        nut_dist_from_crest_m,
+        nut_watershed_area_km2,
+        nut_cleared_area_km2
+      ),
+    by = "nut_site_id"
+  )
+
+```
+
+9.2 clean and map data to coral sites
+```{r}
+## ============================================================
+## 3. NEAREST–NEIGHBOUR MAP: NUTRIENT SITES → CORAL SITES
+## ============================================================
+
+# Coral sites from your existing env table
+coral_sites <- sites %>%
+  select(site.name, long, lat) %>%
+  mutate(
+    long = as.numeric(long),
+    lat  = as.numeric(lat)
+  )
+
+coral_coords <- as.matrix(coral_sites[, c("long", "lat")])
+nut_coords   <- as.matrix(nut_sites_summary[, c("nut_long", "nut_lat")])
+
+# Index of nearest nutrient site for each coral site
+nearest_idx_nut <- apply(coral_coords, 1, function(x) {
+  dists_m <- distHaversine(x, nut_coords)
+  which.min(dists_m)
+})
+
+# Actual distances (m)
+nearest_dist_nut_m <- sapply(seq_len(nrow(coral_coords)), function(i) {
+  distHaversine(coral_coords[i, ], nut_coords[nearest_idx_nut[i], ])
+})
+
+# Coral × nutrient table with mapped values
+nut_by_coral <- coral_sites %>%
+  mutate(
+    nut_site_id_near        = nut_sites_summary$nut_site_id[nearest_idx_nut],
+    nut_PO4_mean_uM         = nut_sites_summary$nut_PO4_mean_uM[nearest_idx_nut],
+    nut_SiO4_mean_uM        = nut_sites_summary$nut_SiO4_mean_uM[nearest_idx_nut],
+    nut_NOx_mean_uM         = nut_sites_summary$nut_NOx_mean_uM[nearest_idx_nut],
+    nut_NH4_mean_uM         = nut_sites_summary$nut_NH4_mean_uM[nearest_idx_nut],
+    nut_N_P_mean            = nut_sites_summary$nut_N_P_mean[nearest_idx_nut],
+    nut_n_samples           = nut_sites_summary$nut_n_samples[nearest_idx_nut],
+    nut_habitat_near        = nut_sites_summary$nut_habitat[nearest_idx_nut],
+    nut_island_shore_near   = nut_sites_summary$nut_island_shore[nearest_idx_nut],
+    dist_to_nut_site_m      = nearest_dist_nut_m
+  )
+
+nut_long <- nut_by_coral %>%
+  select(site.name,
+         nut_SiO4_mean_uM,
+         nut_N_P_mean) %>%
+  pivot_longer(
+    cols = starts_with("nut_"),
+    names_to = "nutrient",
+    values_to = "value"
+  ) %>%
+  mutate(nutrient = recode(nutrient,
+                           nut_SiO4_mean_uM = "SiO₄ (µM)",
+                           nut_N_P_mean = "N:P"))
+
+nut_long$site.name <- factor(
+  nut_long$site.name,
+  levels = c("S2", "S3", "S4", "S5", "S6", "S9", "S11", "S12", "S14", "S15", "S18" )
+)
+
+nut_water <- ggplot(nut_long, aes(x = site.name, y = value)) +
+  geom_col(fill = "gray", width = 0.7) +
+  facet_wrap(~ nutrient, scales = "free_y", ncol = 2) +
+  labs(
+    #title = "Water Column Nutrients by Coral Site",
+    x = "Site",
+    y = "Value"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    strip.text = element_text(face = "bold", size = 11),
+    axis.text.x = element_text(angle = 45, hjust = 1))
+nut_water
+
+ggsave(
+  filename = "Output/nut_watercolumn_plot.png",
+  plot = nut_water  ,
+  device = "png",
+  width = 8,     # adjust width in inches
+  height = 4,     # adjust height in inches
+  units = "in"
+)
+
+```
+
+
+
+Recruitment
+recruitment only at LTER1–2 (North), same for all PH sites → no spatial variation, so do not include it in X for this site-level JSDM. It can be used in interpretation only for temporal patterns that would assume equal recruitment around the island.
+
+10. Build the predictor matrix X for boral
+
+10.1 Join the environmental dataset
+```{r}
+#Start from temperature table (has long, lat, shore, temp metrics)
+sites_env_full <- sites_temp %>%
+  
+  # ---- Add waves ----
+  left_join(
+    sites_wave %>%
+      select(
+        site.name,
+        wave_P_mean = P_mean,
+        wave_P_p95  = P_p95,
+        wave_P_max  = P_max,
+        wave_P_sd   = P_sd
+      ),
+    by = "site.name"
+  ) %>%
+  
+  # ---- Add benthic cover (backreef) ----
+  left_join(
+    sites_benthic %>%
+      select(
+        site.name,
+        br_site,
+        br_long,
+        br_lat,
+        coral_cover_br,
+        macroalgae_cover_br,
+        ctb_cover_br,
+        sand_cover_br,
+        millepora_cover_br,
+        dist_to_br_m
+      ),
+    by = "site.name"
+  ) %>%
+  
+  # ---- Add fish biomass (backreef) ----
+  left_join(
+    sites_fish %>%
+      select(
+        site.name,
+        fish_Corallivore_mean_biomass_g_m2,
+        fish_HerbDet_mean_biomass_g_m2
+      ),
+    by = "site.name"
+  ) %>%
+  
+  # ---- Add high spatial resolution nutrients (Turbinaria CHN) ----
+  left_join(
+    coral_turb %>%
+      select(
+        site.name,
+        turb_N_mean_pct,
+        turb_N_sd_pct,
+        turb_N_n_samples
+      ),
+    by = "site.name"
+  ) %>%
+
+  # ---- Add fDOM ----
+  left_join(
+    sites_fdom %>%
+      select(
+        site.name,
+        fdom_HIX_mean,
+        fdom_BIX_mean,
+        fdom_MC_corr_mean,
+        fdom_FI_mean
+      ),
+    by = "site.name"
+  ) %>%
+
+  # ---- Add seawater chemistry ----
+  left_join(
+    nut_by_coral %>%
+      select(
+        site.name,
+        nut_SiO4_mean_uM,
+        nut_N_P_mean,
+        nut_n_samples
+      ),
+    by = "site.name"
+  )
+
+
+# Have a look
+glimpse(sites_env_full)
+
+```
+
+10.2 Decide which variables to keep as predictors
+```{r}
+# colnames(sites_env_full)
+
+
+env_predictors_raw <- sites_env_full %>%
+  select(
+    site.name,
+    max_temp_br,
+    daily_range_br,
+    wave_P_mean,
+    coral_cover_br,
+    #ctb_cover_br,
+    #sand_cover_br,
+    fish_Corallivore_mean_biomass_g_m2,
+    #fish_HerbDet_mean_biomass_g_m2,
+    turb_N_mean_pct,
+    fdom_HIX_mean,
+    fdom_BIX_mean,
+    fdom_MC_corr_mean,
+    nut_SiO4_mean_uM,
+    nut_N_P_mean
+  )
+
+env_vars <- c(
+    "max_temp_br",
+    "daily_range_br",
+    "wave_P_mean",
+    "coral_cover_br",
+    #"ctb_cover_br",
+    #"sand_cover_br",
+    "fish_Corallivore_mean_biomass_g_m2",
+    #"fish_HerbDet_mean_biomass_g_m2",
+    "turb_N_mean_pct",
+    "fdom_HIX_mean",
+    "fdom_BIX_mean",
+    "fdom_MC_corr_mean",
+    "nut_SiO4_mean_uM",
+    "nut_N_P_mean"
+  )
+  
+
+```
+
+10.3 Scale the predictors for modeling
+```{r}
+# numeric-only matrix for scaling
+X_env <- env_predictors_raw %>%
+  select(-site.name) %>%
+  scale() %>%
+  as.data.frame()
+
+# Add site names back for clarity
+X_env <- cbind(site = env_predictors_raw$site.name, X_env)
+
+# Look at scaled matrix
+X_env
+
+# Check for missing values (JSDMs cannot handle NAs without imputation)
+colSums(is.na(X_env))
+
+# Check distributions
+summary(env_predictors_raw)
+
+# Check correlations if worried about collinearity
+cor(env_predictors_raw %>% select(-site.name), use = "pairwise.complete.obs")
+
+
+# Select numeric predictors only
+env_num <- env_predictors_raw %>%
+  select(-site.name)
+
+# Compute correlation matrix
+cor_mat <- cor(env_num, use = "pairwise.complete.obs", method = "pearson")
+
+cor_mat[upper.tri(cor_mat)] <- NA
+cor_long <- melt(cor_mat, na.rm = TRUE)
+
+predictor.corrs <- ggplot(cor_long, aes(Var1, Var2, fill = value)) +
+  geom_tile(color = "white") +
+  
+  # Add correlation values
+  geom_text(aes(label = sprintf("%.2f", value)),
+            color = "black", size = 3) +
+  
+  scale_fill_gradient2(
+    low = "#2166AC", mid = "white", high = "#B2182B",
+    midpoint = 0, limits = c(-1,1), name = "Correlation"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  ) +
+  labs(
+    x = "",
+    y = "",
+    title = "Correlation Matrix (Lower Triangle)"
+  )
+
+predictor.corrs
+
+ggsave(
+  filename = "Output/predictor_correlations_plot.png",
+  plot = predictor.corrs,
+  device = "png",
+  width = 10,     # adjust width in inches
+  height = 10,     # adjust height in inches
+  units = "in"
+)
+
+
+```
+
+SANITY CHECKS 
+what predictor variable sites were chosen as closest to the coral density sites?
+```{r}
+plot_link_map <- function(df,
+                          coral_lon, coral_lat,
+                          pred_lon, pred_lat,
+                          coral_label,
+                          value_cols,
+                          title_prefix = "") {
+  
+  df_long <- df %>%
+    dplyr::select(all_of(c(coral_lon, coral_lat,
+                           pred_lon, pred_lat,
+                           coral_label,
+                           value_cols))) %>%
+    tidyr::pivot_longer(
+      cols      = all_of(value_cols),
+      names_to  = "variable",
+      values_to = "value"
+    )
+  
+  ggplot(df_long) +
+    # line from coral site to predictor site
+    geom_segment(
+      aes(
+        x    = .data[[coral_lon]],
+        y    = .data[[coral_lat]],
+        xend = .data[[pred_lon]],
+        yend = .data[[pred_lat]]
+      ),
+      colour = "grey70",
+      alpha  = 0.7
+    ) +
+    # predictor station (always black)
+    geom_point(
+      aes(
+        x = .data[[pred_lon]],
+        y = .data[[pred_lat]]
+      ),
+      size  = 2.3,
+      shape = 21,
+      fill  = "black",
+      colour = "black"
+    ) +
+    # coral site (white with black border)
+    geom_point(
+      aes(
+        x = .data[[coral_lon]],
+        y = .data[[coral_lat]]
+      ),
+      shape  = 21,
+      fill   = "white",
+      size   = 2.8,
+      colour = "black"
+    ) +
+    # coral site labels
+    geom_text(
+      aes(
+        x     = .data[[coral_lon]],
+        y     = .data[[coral_lat]],
+        label = .data[[coral_label]]
+      ),
+      vjust = -0.7,
+      size  = 2.8
+    ) +
+    coord_equal() +  # keep true geography
+    facet_wrap(~ variable, ncol = 2) +
+    theme_minimal(base_size = 11) +
+    theme(
+      panel.grid        = element_blank(),
+      strip.background  = element_rect(fill = "grey95", colour = NA),
+      axis.title.x      = element_text(margin = margin(t = 5)),
+      axis.title.y      = element_text(margin = margin(r = 5)),
+      legend.position   = "none"     # remove color legend entirely
+    ) +
+    labs(
+      x     = "Longitude",
+      y     = "Latitude",
+      title = title_prefix
+    )
+}
+
+
+```
+
+fDOM
+```{r}
+fdom_value_cols <- c(
+  "fdom_HIX_mean"
+)
+
+fdom_spatial <- plot_link_map(
+  df          = sites_fdom,
+  coral_lon   = "long",
+  coral_lat   = "lat",
+  pred_lon    = "fdom_long",
+  pred_lat    = "fdom_lat",
+  coral_label = "site.name",
+  value_cols  = fdom_value_cols,
+  title_prefix = "fDOM metrics – coral survey sites and nearest fDOM stations"
+)
+fdom_spatial
+
+ggsave(
+  filename = "Output/fdom_spatial_plot.png",
+  plot = fdom_spatial,
+  device = "png",
+  width = 10,     # adjust width in inches
+  height = 10,     # adjust height in inches
+  units = "in"
+)
+
+
+```
+Turbinaria high spatial resolation
+```{r}
+## From the nutrient spatial metadata (1048 dt1)
+nut_spatial_coords <- turbinaria_sites %>%      # <-- whatever you named dt1
+  dplyr::select(
+    nut_site_id = Site,
+    nut_long    = Longitude,
+    nut_lat     = Latitude
+  )
+
+## Attach coordinates of the nearest nutrient site to each coral site
+nut_by_coral_loc <- nut_by_coral %>%
+  dplyr::left_join(
+    nut_spatial_coords,
+    by = c("nut_site_id_near" = "nut_site_id")
+  )
+
+
+nut_value_cols <- c(
+  "nut_SiO4_mean_uM"
+)
+
+nut_water_spatial <- plot_link_map(
+  df          = nut_by_coral_loc,
+  coral_lon   = "long",
+  coral_lat   = "lat",
+  pred_lon    = "nut_long",
+  pred_lat    = "nut_lat",
+  coral_label = "site.name",
+  value_cols  = nut_value_cols,
+  title_prefix = "Nutrient concentrations – coral sites and nearest nutrient stations"
+)
+nut_water_spatial
+
+ggsave(
+  filename = "Output/nut_water_spatial_plot.png",
+  plot = nut_water_spatial,
+  device = "png",
+  width = 10,     # adjust width in inches
+  height = 10,     # adjust height in inches
+  units = "in"
+)
+
+
+```
+Benthic Data
+```{r}
+benthic_value_cols <- c(
+  "coral_cover_br"
+)
+
+benthic_spatial <- plot_link_map(
+  df          = sites_benthic,
+  coral_lon   = "long",
+  coral_lat   = "lat",
+  pred_lon    = "br_long",
+  pred_lat    = "br_lat",
+  coral_label = "site.name",
+  value_cols  = benthic_value_cols,
+  title_prefix = "Back-reef benthic cover – coral sites and nearest LTER benthic station"
+)
+benthic_spatial
+
+ggsave(
+  filename = "Output/benthic_spatial_plot.png",
+  plot = benthic_spatial,
+  device = "png",
+  width = 10,     # adjust width in inches
+  height = 10,     # adjust height in inches
+  units = "in"
+)
+
+```
+
+Temperature Data
+```{r}
+temp_value_cols <- c(
+  "max_temp_br"
+)
+
+temp_spatial <- plot_link_map(
+  df          = sites_temp,
+  coral_lon   = "long",
+  coral_lat   = "lat",
+  pred_lon    = "temp_long",
+  pred_lat    = "temp_lat",
+  coral_label = "site.name",
+  value_cols  = temp_value_cols,
+  title_prefix = "Temperature – coral sites and nearest LTER thermister array"
+)
+temp_spatial
+
+ggsave(
+  filename = "Output/temp_spatial_plot.png",
+  plot = temp_spatial,
+  device = "png",
+  width = 10,     # adjust width in inches
+  height = 10,     # adjust height in inches
+  units = "in"
+)
+
+```
+
+
+11. Fit the boral JSDM
+11.1 Align Y and X (by site names)
+```{r}
+# Extract site order from Y
+Y_sites <- rownames(Y)
+
+# Reorder X_env to match Y
+X_env_aligned <- X_env %>%
+  arrange(match(site, Y_sites))
+
+# Verify alignment
+stopifnot(all(rownames(Y) == X_env_aligned$site))
+
+# Build predictor matrix X
+X <- X_env_aligned %>%
+  select(-site) %>%
+  as.matrix()
+
+```
+
+
+11.2 Run the model
+```{r}
+set.seed(123)
+
+boral_fit <- boral(
+  y = Y,
+  X = X,
+  family = "normal",
+  lv.control = list(num.lv = 2),
+  row.eff = "none",
+  save.model = TRUE,
+  mcmc.control = list(
+    n.burnin = 20000,
+    n.iteration = 40000,
+    n.thin = 20
+  )
+)
+```
+
+12. Model output
+12.1 Model output: coefficients
+```{r}
+
+names(boral_fit)
+
+#Environmental coefficients (predictor → taxon responses)
+X_eff <- boral_fit$X.coefs.median
+X_eff
+
+X_long <- melt(X_eff, varnames = c("response", "predictor"), value.name = "beta")
+
+ggplot(X_long, aes(predictor, response, fill = beta)) +
+  geom_tile() +
+  scale_fill_gradient2(
+    low = "#2166AC", mid = "white", high = "#B2182B",
+    midpoint = 0
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(
+    x = "Environmental predictor",
+    y = "Species × size class",
+    title = "boral: posterior median regression coefficients"
+  )
+
+
+```
+12.2 Residual correlations
+```{r}
+res_cor <- get.residual.cor(boral_fit)
+
+res_long <- melt(res_cor, varnames = c("response1", "response2"), 
+                 value.name = "resid_cor") %>%
+  filter(!is.na(response1))
+
+ggplot(res_long, aes(response1, response2, fill = resid_cor)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(
+    low = "#2166AC", mid = "gray", high = "#B2182B",
+    midpoint = 0, limits = c(-1,1)
+  ) +
+  theme_minimal(base_size = 8) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Residual correlation matrix (boral)")
+
+```
+
+12.3 Plot taxa ordination
+```{r}
+## Extract LV loadings from boral
+loadings <- boral_fit$lv.coefs.median
+L <- as.data.frame(loadings)
+L$taxon <- rownames(L)
+
+## Extract species name (before first underscore)
+L$species <- sub("_.*", "", L$taxon)
+
+## Define your custom species color palette
+species_cols <- c(
+  "P. tuahiniensis" = "#D55E00",
+  "P. meandrina"    = "#CC79A7",
+  "P. verrucosa"    = "#E69F00",
+  "P. grandis"      = "#0072B2",
+  "P. effusa"       = "#009E73",
+  "P. acuta"        = "#e63946"
+)
+
+## Plot LV1 vs LV2 with species colors
+ggplot(L, aes(theta1, theta2, label = taxon, color = species)) +
+  geom_point(size = 3) +
+  geom_text(vjust = -0.6, size = 3) +
+  scale_color_manual(values = species_cols) +
+  theme_bw() +
+  labs(
+    title = "Taxon Loadings in LV Space (boral)",
+    x = "LV1 (theta1)",
+    y = "LV2 (theta2)",
+    color = "Species"
+  )
+
+#zoom in by excluding visualization of P. acuta
+## 2. Extract species
+L$species <- sub("_.*", "", L$taxon)
+
+## 3. Remove P. acuta rows
+L_no_acuta <- L %>% 
+  filter(species != "P. acuta")
+
+## 4. Custom colors
+species_cols <- c(
+  "P. tuahiniensis" = "#D55E00",
+  "P. meandrina"    = "#CC79A7",
+  "P. verrucosa"    = "#E69F00",
+  "P. grandis"      = "#0072B2",
+  "P. effusa"       = "#009E73"
+  # P. acuta intentionally omitted
+)
+
+## 5. LV scatter plot without P. acuta
+ggplot(L_no_acuta, aes(theta1, theta2, label = taxon, color = species)) +
+  geom_point(size = 3) +
+  geom_text(vjust = -0.6, size = 3) +
+  scale_color_manual(values = species_cols) +
+  theme_bw() +
+  labs(
+    title = "Taxon Loadings in LV Space (P. acuta removed)",
+    x = "LV1 (theta1)",
+    y = "LV2 (theta2)",
+    color = "Species"
+  )
+
+
+```
+
+
+12.4 Plot site ordination
+```{r}
+# Extract site scores (latent variables) – boral stores these as lv.median
+site_lv <- as.data.frame(boral_fit$lv.median)
+
+# Add site names (should match rownames of Y)
+site_lv$site <- rownames(Y)
+
+str(site_lv)
+# Expect columns: LV1, LV2 (and maybe LV3... if num.lv > 2)
+
+# Example using sites_env_full; adjust object name if needed
+site_lv <- site_lv %>%
+  left_join(
+    sites_env_full %>% select(site.name, shore),
+    by = c("site" = "site.name")
+  )
+
+ggplot(site_lv, aes(x = lv1, y = lv2, label = site, color = shore)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey80") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey80") +
+  geom_point(size = 3) +
+  geom_text(nudge_y = 0.05, size = 3) +
+  theme_minimal() +
+  labs(
+    title = "Site ordination in latent variable space (boral)",
+    x = "Latent Variable 1 (LV1)",
+    y = "Latent Variable 2 (LV2)",
+    color = "Shore"
+  )
+
+site_lv_env <- site_lv %>%
+  left_join(X_env, by = "site")   # both have 'site' = S11, S12, ...
+
+ggplot(site_lv_env, aes(x = lv1, y = lv2)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey85") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey85") +
+  geom_point(aes(color = wave_P_mean, shape = shore), size = 3) +
+  geom_text(aes(label = site), nudge_y = 0.05, size = 3) +
+  scale_color_viridis_c(option = "plasma") +
+  theme_minimal() +
+  labs(
+    title = "Site ordination with max wave power",
+    x = "Latent Variable 1 (LV1)",
+    y = "Latent Variable 2 (LV2)",
+    color = "Average Wave Power\n(z-score)",
+    shape = "Shore"
+  )
+
+
+
+## --- 3. Choose environmental variables to show as arrows -----------------
+env_vars #listed above in model
+
+# Matrix of LV scores
+lv_mat   <- as.matrix(site_lv_env[, c("lv1", "lv2")])
+
+# Matrix of environmental predictors (must be numeric)
+env_mat  <- as.matrix(site_lv_env[, env_vars])
+
+## --- 4. Compute environmental arrow directions (correlations) -----------
+# For each env variable, correlate with LV1 and LV2
+env_arrows <- lapply(seq_along(env_vars), function(j) {
+  vname <- env_vars[j]
+  x     <- env_mat[, j]
+
+  c(
+    var   = vname,
+    cor_LV1 = cor(x, lv_mat[, 1], use = "pairwise.complete.obs"),
+    cor_LV2 = cor(x, lv_mat[, 2], use = "pairwise.complete.obs")
+  )
+})
+
+env_arrows <- do.call(rbind, env_arrows) %>%
+  as.data.frame() %>%
+  mutate(
+    cor_LV1 = as.numeric(cor_LV1),
+    cor_LV2 = as.numeric(cor_LV2)
+  )
+
+# Scale arrow lengths so they fit nicely in the LV space
+arrow_scale <- 1.5
+env_arrows <- env_arrows %>%
+  mutate(
+    xend = cor_LV1 * arrow_scale,
+    yend = cor_LV2 * arrow_scale
+  )
+
+## --- 5. Site-ordination biplot: shore ellipses + env arrows -------------
+ggplot() +
+  # Ellipses by shore (site groups)
+  stat_ellipse(
+    data = site_lv_env,
+    aes(x = lv1, y = lv2, color = shore, group = shore),
+    type  = "norm",
+    level = 0.68,
+    linewidth = 0.6,
+    alpha = 0.4
+  ) +
+  # Sites
+  geom_point(
+    data = site_lv_env,
+    aes(x = lv1, y = lv2, color = shore),
+    size = 3
+  ) +
+  ggrepel::geom_text_repel(
+    data = site_lv_env,
+    aes(x = lv1, y = lv2, label = site, color = shore),
+    size = 3,
+    max.overlaps = 50,
+    show.legend = FALSE
+  ) +
+  # Axes through origin
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.3) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.3) +
+  # Environmental arrows (from origin)
+  geom_segment(
+    data = env_arrows,
+    aes(
+      x = 0, y = 0,
+      xend = xend,
+      yend = yend
+    ),
+    arrow = arrow(length = unit(0.2, "cm")),
+    color = "grey20",
+    linewidth = 0.4
+  ) +
+  # Labels for environmental variables
+  ggrepel::geom_text_repel(
+    data = env_arrows,
+    aes(
+      x = xend,
+      y = yend,
+      label = var
+    ),
+    size = 3,
+    color = "black",
+    max.overlaps = 100,
+    segment.color = NA
+  ) +
+  labs(
+    x = "LV1 (site scores)",
+    y = "LV2 (site scores)",
+    color = "Shore",
+    title = "Site ordination in LV space with environmental gradients",
+    subtitle = "Ellipses = shore groups; arrows = env gradients (correlation with LV1/LV2)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "right"
+  )
+
+
+```
+
+
+
+13. Variance partitioning 
+13.1 identify which predictors matter most overall
+```{r}
+#coefs <- boral_fit$jags.model$BUGSoutput$sims.list
+
+
+## Columns you used as predictors in boral (order matters!)
+env_cols <- env_vars
+
+## Match X rows to Y rows by site name
+X_env_ordered <- X_env %>%
+  filter(site %in% rownames(Y)) %>%        # keep the 11 PH sites
+  arrange(match(site, rownames(Y)))        # match the order of Y
+
+stopifnot(all(X_env_ordered$site == rownames(Y)))
+
+## X matrix used in the model
+X_mat <- as.matrix(X_env_ordered[, env_cols])
+rownames(X_mat) <- X_env_ordered$site
+
+n_site    <- nrow(Y)
+n_species <- ncol(Y)
+p_X       <- ncol(X_mat)
+
+species_names <- colnames(Y)
+pred_names    <- colnames(X_mat)
+
+## ==========================================================
+## 2. Extract posterior β (X.coefs) from boral_fit
+## ==========================================================
+
+coefs <- boral_fit$jags.model$BUGSoutput$sims.list
+
+if (!"X.coefs" %in% names(coefs)) {
+  stop("X.coefs not found in boral_fit$jagsoutput$BUGSoutput$sims.list")
+}
+
+beta_array_full <- coefs$X.coefs      # MCMC samples of X coefficients
+dim_beta <- dim(beta_array_full)      # usually: n_sims × something × something
+
+n_sims <- dim_beta[1]
+
+## Figure out which dimension is species, which is coefficients
+if (dim_beta[2] == n_species) {
+  # iter × species × coef
+  beta_array_full <- aperm(beta_array_full, c(1, 3, 2))  # → iter × coef × species
+} else if (dim_beta[3] == n_species) {
+  # iter × coef × species → already in desired form
+  # do nothing
+} else {
+  stop("Cannot match dimensions of X.coefs to n_species. ",
+       "dim(X.coefs) = ", paste(dim_beta, collapse = " x "),
+       ", n_species = ", n_species)
+}
+
+n_coef_full <- dim(beta_array_full)[2]
+
+## Expect: intercept + p_X predictors  OR just p_X predictors
+if (n_coef_full == p_X + 1) {
+  message("Detected intercept in X.coefs; dropping the first column.")
+  beta_array <- beta_array_full[, -1, , drop = FALSE]  # iter × p_X × species
+} else if (n_coef_full == p_X) {
+  message("No separate intercept column detected in X.coefs; using all coefficients as predictors.")
+  beta_array <- beta_array_full                          # iter × p_X × species
+} else {
+  stop("Number of X coefficients (", n_coef_full,
+       ") does not match number of predictors (", p_X,
+       " or ", p_X + 1, "). Check that X_env and boral model use the same predictors and order.")
+}
+
+## Posterior mean β (predictor × species)
+beta_mean <- apply(beta_array, c(2, 3), mean)   # p_X × n_species
+rownames(beta_mean) <- pred_names
+colnames(beta_mean) <- species_names
+
+## ==========================================================
+## 3. Variance partitioning by species
+## ==========================================================
+## For each species j:
+##   eta_total_ij = sum_k X_ik * β_kj   (over predictors k)
+##   eta_k_ij     = X_ik * β_kj         (effect of predictor k alone)
+##   var_kj       = Var_i(eta_k_·j)
+## We normalise var_kj so proportions per species sum to 1.
+
+varpart_mat <- matrix(NA_real_, nrow = p_X, ncol = n_species,
+                      dimnames = list(pred_names, species_names))
+
+for (j in seq_len(n_species)) {
+  # fitted linear predictor across sites for species j
+  eta_total_j <- as.numeric(X_mat %*% beta_mean[, j])  # n_site vector
+  
+  # raw variance contribution of each predictor k to species j
+  var_k_j <- numeric(p_X)
+  
+  for (k in seq_len(p_X)) {
+    eta_k_j <- X_mat[, k] * beta_mean[k, j]  # effect of this predictor only
+    var_k_j[k] <- stats::var(eta_k_j)
+  }
+  
+  # normalise so contributions sum to 1 for each species
+  if (sum(var_k_j) > 0) {
+    varpart_mat[, j] <- var_k_j / sum(var_k_j)
+  } else {
+    varpart_mat[, j] <- NA_real_
+  }
+}
+
+## ==========================================================
+## 4. Summarise across species (overall predictor importance)
+## ==========================================================
+
+overall_importance <- rowMeans(varpart_mat, na.rm = TRUE)
+overall_importance <- sort(overall_importance, decreasing = TRUE)
+
+overall_importance
+
+## ==========================================================
+## 5. Plot variance partitioning
+## ==========================================================
+
+## Heatmap: predictors × species
+varpart_long <- melt(varpart_mat, varnames = c("Predictor", "Species"),
+                     value.name = "prop_var")
+
+ggplot(varpart_long, aes(x = Species, y = Predictor, fill = prop_var)) +
+  geom_tile(color = "grey80") +
+  scale_fill_gradient2(
+    low = "white", mid = "#FDB863", high = "#B2182B",
+    midpoint = 0.25, na.value = "grey90",
+    name = "Proportion\nof variance"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  ) +
+  labs(
+    title = "Approximate variance partitioning by species",
+    x = "Coral species × size class",
+    y = "Predictor"
+  )
+
+## Barplot: overall importance across species
+overall_df <- data.frame(
+  Predictor = names(overall_importance),
+  MeanProp  = as.numeric(overall_importance)
+)
+
+ggplot(overall_df, aes(x = reorder(Predictor, MeanProp), y = MeanProp)) +
+  geom_col() +
+  coord_flip() +
+  theme_minimal(base_size = 11) +
+  labs(
+    title = "Average proportional contribution to linear predictor variance",
+    x = "Predictor",
+    y = "Mean proportion across species"
+  )
+
+```
+
+13.X Environmental predictors 
+Single/pairwise predictor effects per site
+```{r}
+## 1. Extract β (environmental coefficients) and X (predictor matrix)
+B  <- boral_fit$X.coefs.median          # species × predictors (s × p)
+BX <- as.matrix(boral_fit$X)            # sites × predictors   (n × p)
+
+## 2. Compute environmental influence: E = X β  → n_sites × n_taxa
+# (B is s × p, so we need t(B) = p × s)
+E_env <- BX %*% t(B)                    # 11 × 24  (sites × taxa)
+
+## 3. Put into a data.frame
+E_env_df <- as.data.frame(E_env)
+
+## 4. Recover site names from Y / boral_fit$y
+site_names <- rownames(boral_fit$y)
+if (is.null(site_names)) {
+  site_names <- rownames(Y)  # fallback if you still have Y in your workspace
+}
+
+E_env_df$site.name <- site_names
+
+## 5. Long format
+E_long <- E_env_df %>%
+  relocate(site.name) %>%
+  pivot_longer(
+    cols      = -site.name,
+    names_to  = "taxon",
+    values_to = "env_influence"
+  )
+
+## 6. Heatmap
+ggplot(E_long, aes(x = site.name, y = taxon, fill = env_influence)) +
+  geom_tile() +
+  scale_fill_gradient2(
+    low = "#2166AC", mid = "white", high = "#B2182B",
+    midpoint = 0
+  )
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(
+    title = "Environmental contribution (Xβ) by site and taxon",
+    x = "Site",
+    y = "Species × size class",
+    fill = "Xβ"
+  )
+
+```
+decomposition by predictor
+```{r}
+
+## ---------------------------------------------------------
+## 0. Extract matrices
+## ---------------------------------------------------------
+
+# β coefficients (taxon × predictor) → transpose to predictor × taxon
+B_full <- boral_fit$X.coefs.median
+if (is.null(B_full)) stop("X.coefs.median not found in boral_fit.")
+B_full <- t(B_full)   # predictors × taxa
+
+# X used in the model
+X_full <- as.data.frame(boral_fit$X)
+
+# Use boral's site names
+site_names_true <- rownames(boral_fit$lv.median)
+rownames(X_full) <- site_names_true
+
+## ---------------------------------------------------------
+## 1. Align predictors between X and B
+## ---------------------------------------------------------
+
+common_pred <- intersect(colnames(X_full), rownames(B_full))
+if (length(common_pred) == 0)
+  stop("No matching predictor names between X and X.coefs.median")
+
+X <- as.matrix(X_full[, common_pred, drop = FALSE])      # n_site × n_pred
+B <- B_full[common_pred, , drop = FALSE]                 # n_pred × n_taxa
+
+n_site <- nrow(X)
+n_pred <- ncol(X)
+n_taxa <- ncol(B)
+
+site_names <- rownames(X)
+taxa_names <- colnames(B)
+pred_names <- colnames(X)
+
+## ---------------------------------------------------------
+## 2. Build contrib_arr[site, taxon, predictor] = X_ik * β_kj
+## ---------------------------------------------------------
+contrib_arr <- array(
+  NA_real_,
+  dim = c(n_site, n_taxa, n_pred),
+  dimnames = list(
+    site      = site_names,
+    taxon     = taxa_names,
+    predictor = pred_names
+  )
+)
+
+for (k in seq_len(n_pred)) {
+  contrib_arr[ , , k] <- outer(X[ , k], B[k, ])  # site × taxon
+}
+
+## ---------------------------------------------------------
+## 3. Collapse across taxa → mean |Xβ| per site × predictor
+## ---------------------------------------------------------
+site_pred_influence <- apply(abs(contrib_arr), c(1, 3), mean, na.rm = TRUE)
+# n_site × n_pred
+
+## ---------------------------------------------------------
+## 4. Normalize per site → fractions that sum to 1
+## ---------------------------------------------------------
+site_pred_fraction <- site_pred_influence / rowSums(site_pred_influence)
+
+## ---------------------------------------------------------
+## 5. Cluster predictors (columns) AND sites (rows)
+## ---------------------------------------------------------
+
+# # Cluster predictors
+# pred_dist  <- dist(t(site_pred_fraction))          # predictors
+# pred_hcl   <- hclust(pred_dist, method = "complete")
+# pred_order <- pred_hcl$labels[pred_hcl$order]
+# 
+# # Cluster sites
+# site_dist  <- dist(site_pred_fraction)             # sites
+# site_hcl   <- hclust(site_dist, method = "complete")
+# site_order <- site_hcl$labels[site_hcl$order]
+
+## ---------------------------------------------------------
+## 6. Long format with clustered factor levels
+## ---------------------------------------------------------
+site_pred_frac_long <- as.data.frame(as.table(site_pred_fraction))
+colnames(site_pred_frac_long) <- c("site", "predictor", "fraction")
+
+site_pred_frac_long$predictor <- factor(
+  site_pred_frac_long$predictor
+)
+
+site_pred_frac_long$site <- factor(
+  site_pred_frac_long$site
+)
+
+## ---------------------------------------------------------
+## 7. Heatmap: clustered by both site and predictor
+## ---------------------------------------------------------
+
+site_pred_frac_long$site <- factor(
+  site_pred_frac_long$site,
+  levels = c("S2", "S3", "S4", "S5", "S6", "S9", "S11", "S12", "S14", "S15", "S18" )
+)
+
+influence <- ggplot(site_pred_frac_long, aes(x = predictor, y = site, fill = fraction)) +
+  geom_tile(color = "white") +
+  scale_fill_viridis_c(
+    option = "D",
+    name   = "Fraction of\nXβ contribution"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid  = element_blank()
+  ) +
+  labs(
+    x = "Predictor",
+    y = "Site",
+    title = "Environmental predictor influence fractions"
+  )
+
+influence
+
+ggsave(
+  filename = "Output/predictor_influence_plot.png",
+  plot = influence,
+  device = "png",
+  width = 8,     # adjust width in inches
+  height = 4,     # adjust height in inches
+  units = "in"
+)
+
+
+
+```
+
+
