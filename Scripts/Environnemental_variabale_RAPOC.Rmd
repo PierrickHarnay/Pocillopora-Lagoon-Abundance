@@ -1,0 +1,562 @@
+---
+title: "Environnemental_variabale_RAPOC"
+output: html_document
+---
+
+load libraries
+```{r}
+library(tidyverse)
+library(gridExtra)
+library(cowplot)
+library(dplyr)
+library(tidyr)
+library(vegan)
+library(ggrepel)
+library(paletteer)
+
+
+```
+
+load the data for calculated the coral cover at the 6 LTER sites close enough to our sites 
+```{r}
+#in the data we have available we do not have the possibility to know what species we have in the category "coral". this data will give us the percentage of coral in each site VS the other organisms
+
+Backreef_wide <- read.csv("Data/Data_Lagoon_Reefs_Benthics_Cover_LTER/MCR_LTER_Coral_Cover_Backreef_Wide_20250429.csv")
+
+Backreef_Long <- read.csv("Data/Data_Lagoon_Reefs_Benthics_Cover_LTER/MCR_LTER_Coral_Cover_Backreef_Long_20250429.csv")
+
+
+```
+
+Organized data to start the cleaning 
+```{r}
+#taking only the data for each LTER site and make a graph with all the quadrats took during the survey 
+
+#LTER_1
+Backreef_Long_LTER1 <- Backreef_Long %>%
+  filter(site == "LTER_1")
+
+Backreef_Long_LTER1_filter <- Backreef_Long_LTER1 %>%
+  select(site, benthic_category, percent_cover)
+
+#LTER_2
+Backreef_Long_LTER2 <- Backreef_Long %>%
+  filter(site == "LTER_2")
+
+Backreef_Long_LTER2_filter <- Backreef_Long_LTER2 %>%
+  select(site, benthic_category, percent_cover)
+
+#LTER_3
+Backreef_Long_LTER3 <- Backreef_Long %>%
+  filter(site == "LTER_3")
+
+Backreef_Long_LTER3_filter <- Backreef_Long_LTER3 %>%
+  select(site, benthic_category, percent_cover)
+
+#LTER_4
+Backreef_Long_LTER4 <- Backreef_Long %>%
+  filter(site == "LTER_4")
+
+Backreef_Long_LTER4_filter <- Backreef_Long_LTER4 %>%
+  select(site, benthic_category, percent_cover)
+
+#LTER_5
+Backreef_Long_LTER5 <- Backreef_Long %>%
+  filter(site == "LTER_5")
+
+Backreef_Long_LTER5_filter <- Backreef_Long_LTER5 %>%
+  select(site, benthic_category, percent_cover)
+
+#LTER_6
+Backreef_Long_LTER6 <- Backreef_Long %>%
+  filter(site == "LTER_6")
+
+Backreef_Long_LTER6_filter <- Backreef_Long_LTER6 %>%
+  select(site, benthic_category, percent_cover)
+
+```
+
+```{r}
+#LTER1
+#vizualisation of the data
+ggplot(Backreef_Long_LTER1_filter, aes(x = benthic_category, y = percent_cover, fill = benthic_category)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Benthic Category Percent Cover at LTER1",
+    x = "Benthic Category",
+    y = "Percent Cover (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#combining all the percentage fund in one number to the percent cover on 100%
+Backreef_Long_LTER1_norm <- Backreef_Long_LTER1_filter %>%
+  mutate(percent_cover_norm = (percent_cover / sum(percent_cover)) * 100)
+
+ggplot(Backreef_Long_LTER1_norm, aes(x = benthic_category, y = percent_cover_norm, fill = benthic_category)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Benthic Category Percent Cover at LTER1",
+    x = "Benthic Category",
+    y = "Percent Cover (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#create table who give us the possibility to combine all the percentage for eah ctageorie in one and unique number so we can create one graph with all the value on 100% 
+Backreef_Long_LTER1_sum <- Backreef_Long_LTER1_norm %>%
+  group_by(site, benthic_category) %>%
+  summarise(total_percent_cover = sum(percent_cover_norm, na.rm = TRUE))
+
+#checking if the value alltogetehr acheive to 100
+sum(Backreef_Long_LTER1_sum$total_percent_cover)
+
+#make the graph for the LTER1 site with the new table where everyyhing together make 100%
+LTER1_benthics_cover <- ggplot(Backreef_Long_LTER1_sum, 
+                               aes(x = site, y = total_percent_cover, fill = benthic_category)) +
+  geom_col() +
+  theme_bw() +
+  scale_fill_paletteer_d("ggthemes::excel_Vapor_Trail") + 
+  ylab("Benthic Abundance (%)") +
+  xlab("Site") +
+  labs(title = "Normalized Benthic Cover per Category at LTER1") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+```{r}
+#LTER2
+#vizualisation of the data
+ggplot(Backreef_Long_LTER2_filter, aes(x = benthic_category, y = percent_cover, fill = benthic_category)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Benthic Category Percent Cover at LTER2",
+    x = "Benthic Category",
+    y = "Percent Cover (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#combining all the percentage fund in one number to the percent cover on 100%
+Backreef_Long_LTER2_norm <- Backreef_Long_LTER2_filter %>%
+  mutate(percent_cover_norm = (percent_cover / sum(percent_cover)) * 100)
+
+ggplot(Backreef_Long_LTER2_norm, aes(x = benthic_category, y = percent_cover_norm, fill = benthic_category)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Benthic Category Percent Cover at LTER2",
+    x = "Benthic Category",
+    y = "Percent Cover (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#create table who give us the possibility to combine all the percentage for eah ctageorie in one and unique number so we can create one graph with all the value on 100% 
+Backreef_Long_LTER2_sum <- Backreef_Long_LTER2_norm %>%
+  group_by(site, benthic_category) %>%
+  summarise(total_percent_cover = sum(percent_cover_norm, na.rm = TRUE))
+
+#checking if the value alltogetehr acheive to 100
+sum(Backreef_Long_LTER2_sum$total_percent_cover)
+
+#make the graph for the LTER1 site with the new table where everyyhing together make 100%
+LTER2_benthics_cover <- ggplot(Backreef_Long_LTER2_sum, 
+                               aes(x = site, y = total_percent_cover, fill = benthic_category)) +
+  geom_col() +
+  theme_bw() +
+  scale_fill_paletteer_d("ggthemes::excel_Vapor_Trail") + 
+  ylab("Benthic Abundance (%)") +
+  xlab("Site") +
+  labs(title = "Normalized Benthic Cover per Category at LTER2") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+```
+
+```{r}
+#LTER3
+#vizualisation of the data
+ggplot(Backreef_Long_LTER3_filter, aes(x = benthic_category, y = percent_cover, fill = benthic_category)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Benthic Category Percent Cover at LTER3",
+    x = "Benthic Category",
+    y = "Percent Cover (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#combining all the percentage fund in one number to the percent cover on 100%
+Backreef_Long_LTER3_norm <- Backreef_Long_LTER3_filter %>%
+  mutate(percent_cover_norm = (percent_cover / sum(percent_cover)) * 100)
+
+ggplot(Backreef_Long_LTER3_norm, aes(x = benthic_category, y = percent_cover_norm, fill = benthic_category)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Benthic Category Percent Cover at LTER3",
+    x = "Benthic Category",
+    y = "Percent Cover (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#create table who give us the possibility to combine all the percentage for eah ctageorie in one and unique number so we can create one graph with all the value on 100% 
+Backreef_Long_LTER3_sum <- Backreef_Long_LTER3_norm %>%
+  group_by(site, benthic_category) %>%
+  summarise(total_percent_cover = sum(percent_cover_norm, na.rm = TRUE))
+
+#checking if the value alltogetehr acheive to 100
+sum(Backreef_Long_LTER3_sum$total_percent_cover)
+
+#make the graph for the LTER1 site with the new table where everyyhing together make 100%
+LTER3_benthics_cover <- ggplot(Backreef_Long_LTER3_sum, 
+                               aes(x = site, y = total_percent_cover, fill = benthic_category)) +
+  geom_col() +
+  theme_bw() +
+  scale_fill_paletteer_d("ggthemes::excel_Vapor_Trail") + 
+  ylab("Benthic Abundance (%)") +
+  xlab("Site") +
+  labs(title = "Normalized Benthic Cover per Category at LTER3") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+```{r}
+#LTER4
+#vizualisation of the data
+ggplot(Backreef_Long_LTER4_filter, aes(x = benthic_category, y = percent_cover, fill = benthic_category)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Benthic Category Percent Cover at LTER4",
+    x = "Benthic Category",
+    y = "Percent Cover (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#combining all the percentage fund in one number to the percent cover on 100%
+Backreef_Long_LTER4_norm <- Backreef_Long_LTER4_filter %>%
+  mutate(percent_cover_norm = (percent_cover / sum(percent_cover)) * 100)
+
+ggplot(Backreef_Long_LTER4_norm, aes(x = benthic_category, y = percent_cover_norm, fill = benthic_category)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Benthic Category Percent Cover at LTER4",
+    x = "Benthic Category",
+    y = "Percent Cover (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#create table who give us the possibility to combine all the percentage for eah ctageorie in one and unique number so we can create one graph with all the value on 100% 
+Backreef_Long_LTER4_sum <- Backreef_Long_LTER4_norm %>%
+  group_by(site, benthic_category) %>%
+  summarise(total_percent_cover = sum(percent_cover_norm, na.rm = TRUE))
+
+#checking if the value alltogetehr acheive to 100
+sum(Backreef_Long_LTER4_sum$total_percent_cover)
+
+#make the graph for the LTER1 site with the new table where everyyhing together make 100%
+LTER4_benthics_cover <- ggplot(Backreef_Long_LTER4_sum, 
+                               aes(x = site, y = total_percent_cover, fill = benthic_category)) +
+  geom_col() +
+  theme_bw() +
+  scale_fill_paletteer_d("ggthemes::excel_Vapor_Trail") + 
+  ylab("Benthic Abundance (%)") +
+  xlab("Site") +
+  labs(title = "Normalized Benthic Cover per Category at LTER4") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+
+```
+```{r}
+#LTER5
+#vizualisation of the data
+ggplot(Backreef_Long_LTER5_filter, aes(x = benthic_category, y = percent_cover, fill = benthic_category)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Benthic Category Percent Cover at LTER5",
+    x = "Benthic Category",
+    y = "Percent Cover (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#combining all the percentage fund in one number to the percent cover on 100%
+Backreef_Long_LTER5_norm <- Backreef_Long_LTER5_filter %>%
+  mutate(percent_cover_norm = (percent_cover / sum(percent_cover)) * 100)
+
+ggplot(Backreef_Long_LTER5_norm, aes(x = benthic_category, y = percent_cover_norm, fill = benthic_category)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Benthic Category Percent Cover at LTER5",
+    x = "Benthic Category",
+    y = "Percent Cover (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#create table who give us the possibility to combine all the percentage for eah ctageorie in one and unique number so we can create one graph with all the value on 100% 
+Backreef_Long_LTER5_sum <- Backreef_Long_LTER5_norm %>%
+  group_by(site, benthic_category) %>%
+  summarise(total_percent_cover = sum(percent_cover_norm, na.rm = TRUE))
+
+#checking if the value alltogetehr acheive to 100
+sum(Backreef_Long_LTER5_sum$total_percent_cover)
+
+#make the graph for the LTER1 site with the new table where everyyhing together make 100%
+LTER4_benthics_cover <- ggplot(Backreef_Long_LTER5_sum, 
+                               aes(x = site, y = total_percent_cover, fill = benthic_category)) +
+  geom_col() +
+  theme_bw() +
+  scale_fill_paletteer_d("ggthemes::excel_Vapor_Trail") + 
+  ylab("Benthic Abundance (%)") +
+  xlab("Site") +
+  labs(title = "Normalized Benthic Cover per Category at LTER5") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+```{r}
+#LTER6
+#vizualisation of the data
+ggplot(Backreef_Long_LTER6_filter, aes(x = benthic_category, y = percent_cover, fill = benthic_category)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Benthic Category Percent Cover at LTER6",
+    x = "Benthic Category",
+    y = "Percent Cover (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#combining all the percentage fund in one number to the percent cover on 100%
+Backreef_Long_LTER6_norm <- Backreef_Long_LTER6_filter %>%
+  mutate(percent_cover_norm = (percent_cover / sum(percent_cover)) * 100)
+
+ggplot(Backreef_Long_LTER6_norm, aes(x = benthic_category, y = percent_cover_norm, fill = benthic_category)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Benthic Category Percent Cover at LTER6",
+    x = "Benthic Category",
+    y = "Percent Cover (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#create table who give us the possibility to combine all the percentage for eah ctageorie in one and unique number so we can create one graph with all the value on 100% 
+Backreef_Long_LTER6_sum <- Backreef_Long_LTER6_norm %>%
+  group_by(site, benthic_category) %>%
+  summarise(total_percent_cover = sum(percent_cover_norm, na.rm = TRUE))
+
+#checking if the value alltogetehr acheive to 100
+sum(Backreef_Long_LTER6_sum$total_percent_cover)
+
+#make the graph for the LTER1 site with the new table where everyyhing together make 100%
+LTER6_benthics_cover <- ggplot(Backreef_Long_LTER6_sum, 
+                               aes(x = site, y = total_percent_cover, fill = benthic_category)) +
+  geom_col() +
+  theme_bw() +
+  scale_fill_paletteer_d("ggthemes::excel_Vapor_Trail") + 
+  ylab("Benthic Abundance (%)") +
+  xlab("Site") +
+  labs(title = "Normalized Benthic Cover per Category at LTER6") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+```
+```{r}
+#combine all the grah all together to compare site
+#combine all the dataset in one dataset
+Backreef_Long_all_sites_sum <- bind_rows(
+  Backreef_Long_LTER1_sum,
+  Backreef_Long_LTER2_sum,
+  Backreef_Long_LTER3_sum,
+  Backreef_Long_LTER4_sum,
+  Backreef_Long_LTER5_sum,
+  Backreef_Long_LTER6_sum
+)
+
+#make a graph with all the site next to each other and check the difference between sites 
+LTERsite_benthic_cover <- ggplot(Backreef_Long_all_sites_sum, aes(x = site, y = total_percent_cover, fill = benthic_category)) +
+  geom_col(position = "stack") +  
+  theme_bw() +
+  scale_fill_paletteer_d("LaCroixColoR::Pamplemousse") +
+  ylab("Benthic Abundance (%)") +
+  xlab("Site") +
+  labs(title = "Normalized Benthic Cover by Category Across Sites") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+recrutment data
+loading data
+```{r}
+CoralRecruit <- read.csv("Data/MCR_LTER_Coralrecruit/MCR_LTER_CoralRecruit_TileSpatCounts_2006-2022_20250403.csv")
+
+```
+
+Selecting only data from lagoon area and filtering for what we want to see 
+```{r}
+CoralRecruit_Lagoon <- CoralRecruit %>%
+  filter(habitat == "Lagoon")
+#filtering per shore of the island - all genus 
+CoralRecruit_Lagoon_north <- CoralRecruit_Lagoon %>%
+  filter(shore == "north")
+
+#filtering per shore of the island - all genus 
+CoralRecruit_Lagoon_east <- CoralRecruit_Lagoon %>%
+  filter(shore == "east")
+
+#filtering per shore of the island - all genus 
+CoralRecruit_Lagoon_west <- CoralRecruit_Lagoon %>%
+  filter(shore == "west")
+
+#filtering the north shore of island with only the Pocillopora data
+CoralRecruit_Lagoon_north_POC <- CoralRecruit_Lagoon_north %>%
+  filter(family == "Pocilloporidae")
+
+#filtering the east shore of island with only the Pocillopora data
+CoralRecruit_Lagoon_east_POC <- CoralRecruit_Lagoon_east %>%
+  filter(family == "Pocilloporidae")
+
+#filtering the west shore of island with only the Pocillopora data
+CoralRecruit_Lagoon_west_POC <- CoralRecruit_Lagoon_west %>%
+  filter(family == "Pocilloporidae")
+
+```
+
+data vizualization for the north shore at the period jan-sep 
+```{r}
+#vizualization of the data for period of january september trhought the years for Pocilloporidae data 
+#filtering the data for the north shore during the period of jan-sep
+CoralRecruit_Lagoon_north_POC_jansep <- CoralRecruit_Lagoon_north_POC %>%
+  filter(season == "jan-sep")
+
+#ake the count for each year for the period of jan-sep
+north_POC_jansep_yearly_counts <- CoralRecruit_Lagoon_north_POC_jansep %>%
+  group_by(nominal_year) %>%
+  summarise(total_count = sum(count, na.rm = TRUE))
+
+#ploting the data
+ggplot(north_POC_jansep_yearly_counts, aes(x = nominal_year, y = total_count)) +
+  geom_line(color = "steelblue", size = 1.2) +
+  geom_point(color = "darkred", size = 2) +
+  labs(
+    title = "Pocilloporidae Recruitment (Jan–Sep) per Year",
+    x = "Year",
+    y = "Total Recruitment Count"
+  ) +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(2006, 2022, by = 1))
+
+```
+data vizualization for the north shore at the period sep-jan 
+```{r}
+#vizualization of the data for period of september-january trhought the years for Pocilloporidae data 
+#filtering the data for the north shore during the period of sep-jan
+CoralRecruit_Lagoon_north_POC_sepjan <- CoralRecruit_Lagoon_north_POC %>%
+  filter(season == "sep-jan")
+
+#make the count for each year for the period of jan-sep
+north_POC_sepjan_yearly_counts <- CoralRecruit_Lagoon_north_POC_sepjan %>%
+  group_by(nominal_year) %>%
+  summarise(total_count = sum(count, na.rm = TRUE))
+
+#ploting the data
+ggplot(north_POC_sepjan_yearly_counts, aes(x = nominal_year, y = total_count)) +
+  geom_line(color = "steelblue", size = 1.2) +
+  geom_point(color = "darkred", size = 2) +
+  labs(
+    title = "Pocilloporidae Recruitment (Sep-Jan) per Year",
+    x = "Year",
+    y = "Total Recruitment Count"
+  ) +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(2006, 2022, by = 1))
+
+```
+combining both curves results to vizualise the data we have
+```{r}
+#combine filter data set with only the count for each period
+north_POC_jansep_yearly_counts <- north_POC_jansep_yearly_counts %>%
+  mutate(season = "Jan–Sep")
+
+north_POC_sepjan_yearly_counts <- north_POC_sepjan_yearly_counts %>%
+  mutate(season = "Sep–Jan")
+
+north_POC_combined_counts <- bind_rows(north_POC_jansep_yearly_counts, north_POC_sepjan_yearly_counts)
+
+#plot the result 
+ggplot(north_POC_combined_counts, aes(x = nominal_year, y = total_count, color = season)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 2) +
+  labs(
+    title = "Pocilloporidae Recruitment per Year (North Shore)",
+    x = "Year",
+    y = "Total Recruitment Count",
+    color = "Season"
+  ) +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(2006, 2022, by = 1)) +
+  scale_color_manual(values = c("Jan–Sep" = "steelblue", "Sep–Jan" = "darkred"))
+
+```
+Exploring the comparaison betwenn taxa trhought the period of jan-sep
+```{r}
+CoralRecruit_Lagoon_north
+
+#making the count for the number of recruit fund per family during the period jan-sep trought all the years on the north shore of moorea
+north_jansep_yearly_counts <- CoralRecruit_Lagoon_north %>%
+  group_by(nominal_year, family) %>%
+  summarise(total_count = sum(count, na.rm = TRUE))
+
+#plot to visualize the data to compare the picks of recruitment per family 
+ggplot(north_jansep_yearly_counts, aes(x = nominal_year, y = total_count, color = family)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 2) +
+  labs(
+    title =  "Recruitment per Year (North Shore)",
+    x = "Year",
+    y = "Total Recruitment Count",
+    color = "Family"
+  ) +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(2006, 2022, by = 1)) +
+  scale_color_manual(values = c("Acroporidae" = "steelblue", "Pocilloporidae" = "darkred", "Poritidae" = "gray","Other" = "pink" ))
+
+```
+Exploring the temperature data from LTER at the 46 sites around the island. 
+
+```{r}
+Temperature_Lagoon <- read.csv()
+
+
+
+
+
+
+
+```
+
+
+```{r}
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+

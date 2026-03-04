@@ -1,0 +1,388 @@
+---
+title: "Quadrats_analysis"
+output: html_document
+---
+
+```{r}
+#package 
+library(ggplot2)
+library(tidyverse)
+library(stringr)
+library(tidyr)
+library(scales)
+library(colorspace)
+library(ggplot2)
+library(ggthemes)
+```
+
+```{r}
+#import data 
+data <- read.csv("Data/20260226_Quadrat_Benthos_RA.csv")
+
+```
+
+```{r}
+#exract  transect name, site 
+data_clean <- data %>%
+  mutate(
+    Site = str_extract(Name, "S\\d+"),
+    Transect = str_extract(Name, "T\\d+")
+  )
+
+```
+
+
+```{r}
+#counting the number of quadrat gir each site and transect
+quadrat_count <- data_clean %>%
+  distinct(Name, Site, Transect) %>%   
+  group_by(Site, Transect) %>%
+  summarise(n_quadrats = n(), .groups = "drop")
+```
+
+```{r}
+#filter the quadrat from the wrong transect in our case, T4, T5 and T6
+data_clean2 <- data_clean %>%
+  filter(!(
+    (Site == "S1" & Transect == "T6") |
+    (Site == "S2" & Transect == "T4") |
+    (Site == "S4" & Transect == "T4") |
+    (Site == "S5" & Transect == "T4") |
+    (Site == "S5" & Transect == "T6") |
+    (is.na(Site) & Transect == "T2")
+  ))
+
+```
+
+```{r}
+#check on quadrats count after modification 
+quadrat_count2 <- data_clean2 %>%
+  distinct(Name, Site, Transect) %>%   
+  group_by(Site, Transect) %>%
+  summarise(n_quadrats = n(), .groups = "drop")
+
+```
+
+```{r}
+#check the average of qudrats per site 
+quadrat_per_site <- data_clean2 %>%
+  distinct(Name, Site) %>%   
+  group_by(Site) %>%
+  summarise(n_quadrats = n(), .groups = "drop")
+
+```
+
+```{r}
+#average across sites 
+mean_quadrats <- mean(quadrat_per_site$n_quadrats)
+
+mean_quadrats
+```
+```{r}
+#calculating the percent cover 
+cover_quadrat <- data_clean2 %>%
+  group_by(Name, Label.code) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(Name) %>%
+  mutate(percent_cover = n / sum(n) * 100)
+
+#add back site and transect
+cover_quadrat <- cover_quadrat %>%
+  left_join(
+    data_clean2 %>%
+      distinct(Name, Site, Transect),
+    by = "Name"
+  )
+
+#check to see if each transect is at 100%
+cover_quadrat %>%
+  group_by(Name) %>%
+  summarise(total = sum(percent_cover)) %>%
+  summary()
+
+```
+```{r}
+------------
+  
+data_clean2 %>%
+  count(Name) %>%
+  summarise(
+    min_points = min(n),
+    max_points = max(n),
+    mean_points = mean(n)
+  )
+
+#checking for missing categorie 
+table(data_clean2$Label.code, useNA = "ifany")
+
+#check for missing point 
+data_clean2 %>%
+  group_by(Site, Transect) %>%
+  summarise(total_points = n())
+
+#put everything at 100%
+cover_transect2 <- data_clean2 %>%
+  group_by(Site, Transect, Label.code) %>%
+  summarise(n_points = n(), .groups = "drop") %>%
+  group_by(Site, Transect) %>%
+  mutate(percent_cover = n_points / sum(n_points) * 100) %>%
+  ungroup()
+
+#plot the graph with the 100% cver with all categorie inside 
+ggplot(cover_transect2,
+       aes(x = Transect,
+           y = percent_cover,
+           fill = Label.code)) +
+  geom_bar(stat = "identity", width = 0.8) +
+  facet_wrap(~ Site) +
+  ylab("Relative Abundance (%)") +
+  xlab("Transect") +
+  theme_classic() +
+  theme(
+    strip.text = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+#add all the coral genus in one categorie call "coral"
+unique(data_clean2$Label.code)
+
+#adding a column for Coral
+coral_genera <- c("Porites", "Montipora", "Tubastrea",
+                  "Pocillopo", "Psammomora", "Acropora","Millepora", "Leptoseris", "Pavona","Acanthastr", "Pachyseris", "Leptastrea", "Astreopora", "Cyphastrea", "Gardinoser", "Lobophylli", "Fungia", "Sandolitha", "Montastrea", "Un coral" )  
+
+data_clean2 <- data_clean2 %>%
+  mutate(
+    Benthic_group = ifelse(Label.code %in% coral_genera,
+                           "Coral",
+                           Label.code)
+  )
+
+#recalculating the percent cover 
+cover_transect_coral <- data_clean2 %>%
+  group_by(Site, Transect, Benthic_group) %>%
+  summarise(n_points = n(), .groups = "drop") %>%
+  group_by(Site, Transect) %>%
+  mutate(percent_cover = n_points / sum(n_points) * 100) %>%
+  ungroup()
+
+#organize the site for the graph 
+cover_transect_coral <- cover_transect_coral %>%
+  mutate(Site = factor(Site, levels = c("S1", "S2", "S3", "S4", "S5", "S6", "S9", "S11", "S12", "S14", "S15", "S18")))  
+
+#plot for the main categorie 
+main_categ_cover_plot <- ggplot(cover_transect_coral,
+       aes(x = Transect,
+           y = percent_cover,
+           fill = Benthic_group)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ Site) +
+  ylab("Relative Abundance (%)") +
+  xlab("Transect") +
+  theme_classic()
+
+#save the figure as jpg 
+ggsave(filename = "Output/main_categ_cover_transect_plot.png",  # path to your folder
+       plot = main_categ_cover_plot,
+       width = 12,      # width in inches
+       height = 6,      # height in inches
+       dpi = 300)       # resolution
+
+
+#same process but this time we just plot the coral genus relative abundance inside the transect 
+#keep only the coral point
+coral_only <- data_clean2 %>%
+  filter(Label.code %in% coral_genera)
+
+#calculate the genus composition for each transect
+coral_transect_comp <- coral_only %>%
+  group_by(Site, Transect, Label.code) %>%
+  summarise(n_points = n(), .groups = "drop") %>%
+  group_by(Site, Transect) %>%
+  mutate(percent_coral = n_points / sum(n_points) * 100) %>%
+  ungroup()
+
+#verification
+coral_transect_comp %>%
+  group_by(Site, Transect) %>%
+  summarise(total = sum(percent_coral))
+
+#make the plot with the site order 
+coral_transect_comp <- coral_transect_comp %>%
+  mutate(
+    Site_num = as.numeric(str_extract(Site, "\\d+"))
+  ) %>%
+  arrange(Site_num) %>%
+  mutate(
+    Site = factor(Site, levels = unique(Site))
+  )
+
+ggplot(coral_transect_comp,
+       aes(x = Transect,
+           y = percent_coral,
+           fill = Label.code)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ Site) +
+  scale_fill_viridis_d(option = "turbo") +
+  theme_classic()
+
+#manual way 
+
+highlight_colors <- c(
+ "Porites"     = "#E64B35",   # coral red
+ "Montipora"   = "#F39B2B",   # warm orange
+ "Pocillopo"   = "#F0C419",   # golden yellow
+
+ # Other corals — muted cool tones / greys
+ "Acropora"    = "grey40",
+ "Psammomora"  = "grey50",
+ "Leptoseris"  = "grey55",
+ "Pavona"      = "grey60",
+ "Acanthastr"  = "grey65",
+ "Pachyseris"  = "grey70",
+ "Leptastrea"  = "grey72",
+ "Astreopora"  = "grey75",
+ "Cyphastrea"  = "grey78",
+ "Gardinoser"  = "grey80",
+ "Lobophylli"  = "grey82",
+ "Fungia"      = "grey85",
+ "Sandolitha"  = "grey87",
+ "Montastrea"  = "grey90",
+ "Tubastrea"   = "grey45",
+ "Millepora"   = "grey35",
+ "Un coral"    = "grey92"
+)
+
+coral_cover_transect_plot <- ggplot(coral_transect_comp,
+      aes(x = Transect,
+          y = percent_coral,
+          fill = Label.code)) +
+ geom_bar(stat = "identity") +
+ facet_wrap(~ Site) +
+ scale_fill_manual(values = highlight_colors) +
+ theme_classic() +
+ labs(fill = "Coral Genus")
+
+#save the plot 
+ggsave(filename = "Output/coral_cover_transect_plot.png",  # path to your folder
+       plot = coral_cover_transect_plot,
+       width = 12,      # width in inches
+       height = 6,      # height in inches
+       dpi = 300)       # resolution
+
+#plot genus composition for each transect of each site coral focus 
+ggplot(coral_transect_comp,
+       aes(x = Transect,
+           y = percent_coral,
+           fill = Label.code)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ Site) +
+  scale_fill_viridis_d(option = "turbo") +
+  ylab("Coral Genus Composition (%)") +
+  xlab("Transect") +
+  theme_classic() +
+  theme(
+    strip.text = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+```{r}
+#Recalculate percent cover per site
+cover_site <- data_clean2 %>%
+  group_by(Site, Benthic_group) %>%
+  summarise(n_points = n(), .groups = "drop") %>%
+  group_by(Site) %>%
+  mutate(percent_cover = n_points / sum(n_points) * 100) %>%
+  ungroup()
+
+#keep the site order 
+cover_site <- cover_site %>%
+  mutate(Site = factor(Site, 
+                       levels = c("S1", "S2", "S3", "S4", "S5", 
+                                  "S6", "S9", "S11", "S12", 
+                                  "S14", "S15", "S18")))
+
+#Plot benthic cover per site
+site_cover_plot <- ggplot(cover_site,
+       aes(x = Site,
+           y = percent_cover,
+           fill = Benthic_group)) +
+  geom_bar(stat = "identity") +
+  ylab("Relative Abundance (%)") +
+  xlab("Site") +
+  scale_fill_excel("Red-Orange") +   # 👈 this is the key line
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#save it 
+ggsave(filename = "Output/site_cover__plot.png",
+       plot = site_cover_plot,
+       width = 10,
+       height = 6,
+       dpi = 300)
+
+
+#plot the same way as the coral cover benthic with red orange and yellow for the abundante coral species 
+
+```
+
+
+```{r}
+#Coral genus composition per site (transects pooled)
+coral_site_comp <- coral_only %>%
+  group_by(Site, Label.code) %>%
+  summarise(n_points = n(), .groups = "drop") %>%
+  group_by(Site) %>%
+  mutate(percent_coral = n_points / sum(n_points) * 100) %>%
+  ungroup()
+
+#keep the order
+coral_site_comp <- coral_site_comp %>%
+  mutate(Site = factor(Site, levels = levels(cover_site$Site)))
+
+#Plot coral composition per site
+coral_cover_site_plot <- ggplot(coral_site_comp,
+      aes(x = Site,
+          y = percent_coral,
+          fill = Label.code)) +
+ geom_bar(stat = "identity") +
+ scale_fill_manual(values = highlight_colors) +
+ theme_classic() +
+ theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+ labs(fill = "Coral Genus",
+      y = "Relative Coral Abundance (%)")
+
+#save it
+ggsave(filename = "Output/coral_cover_site_plot.png",
+       plot = coral_cover_site_plot,
+       width = 10,
+       height = 6,
+       dpi = 300)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+length(unique(data_clean$Name))
+length(unique(data_clean$Quadrat))
+

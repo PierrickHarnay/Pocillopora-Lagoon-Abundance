@@ -1,0 +1,2265 @@
+---
+title: "Untitled"
+author: "HM Putnam"
+date: "2024-07-26"
+output: html_document
+---
+load libraries
+```{r}
+library(tidyverse)
+library(ggmap)
+#library(ggsn)
+library(gridExtra)
+library(cowplot)
+library(dplyr)
+library(tidyr)
+library(vegan)
+library(ggrepel)
+library(ggridges)
+library(vegan)
+library(dplyr)
+library(pairwiseAdonis)
+
+```
+
+
+load master list to count samples per site
+```{r}
+all.data <- read.csv("Data/POC_ID_RA_list.csv")%>%
+  filter(Timing=="Pre_bleach")
+
+sample.counts <- all.data %>%
+  group_by(Site) %>%
+  summarise(total = n()) 
+sample.counts
+
+sample.transect.counts <- all.data %>%
+  group_by(Site, Transect) %>%
+  summarise(total = n()) 
+sample.transect.counts 
+
+```
+
+load size data
+```{r}
+size.data <- read.csv("Data/POC_RA_Size.csv")
+
+# # Set a seed for reproducibility (optional)
+# set.seed(123)
+# 
+# # Fill Diameter.1 with random values from 0.1 to 1000
+# size.data$Diameter.1 <- runif(nrow(size.data), min = 0.1, max = 1000)
+# 
+# # Function to generate a value within 2 units of a given value
+# generate_within_two <- function(value) {
+#   min_val <- max(0.1, value - 2)  # Ensure the value does not go below 0.1
+#   max_val <- value + 2
+#   runif(1, min = min_val, max = max_val)
+# }
+# 
+# # Fill Diameter.2 and Diameter.3
+# size.data$Diameter.2 <- sapply(size.data$Diameter.1, generate_within_two)
+# size.data$Diameter.3 <- sapply(size.data$Diameter.1, generate_within_two)
+
+
+# Calculate the average of the Diameter columns
+size.data <- size.data %>%
+  mutate(Average.Diameter.cm = rowMeans(select(., Diameter.1, Diameter.2, Diameter.3), na.rm = TRUE))
+
+
+```
+
+```{r}
+#code for plotting only the haplotype and not by species on the graph 
+sample.info <- read.csv("Data/sample.info.csv")
+
+data_h <- read.csv("Data/Haplotype_data.csv", na.strings = "NA")
+
+data_h <- left_join(data_h, sample.info, by="Sample.ID")
+
+
+# set the colors for plotting
+ cols.haplotype <- cbind.data.frame(Haplotype = factor(c("Haplotype 10",
+                                            "Haplotype 1a",
+                                            "Haplotype 3",
+                                             "P. grandis",
+                                             "Haplotype 2",
+                                             "Haplotype 11",
+                                           "Haplotype 5a",
+                                             "Haplotype 8a")),
+                          Color = c("#D55E00",
+                                  "#0072B2",
+                                   "#E69F00",
+                                   "#56B4E9",
+                                   "lightgreen",
+                                   "#009E73",
+                                   "#e63946",
+                                   "#CC79A7"))
+                                   
+# color_mapping <- setNames(cols.haplotype$Color, cols.haplotype$Haplotype)
+
+                                   
+color_mapping_h <- setNames(cols.haplotype$Color, cols.haplotype$Haplotype)
+```
+
+load abundance data
+```{r}
+sample.info <- read.csv("Data/sample.info.csv")
+
+data <- read.csv("Data/Haplotype_data.csv", na.strings = "NA")
+
+data <- left_join(data, sample.info, by="Sample.ID")
+
+
+# set the colors for plotting
+# cols.haplotype <- cbind.data.frame(Haplotype = factor(c("Haplotype 10",
+#                                             "Haplotype 1a",
+#                                             "Haplotype 3",
+#                                             #"P. grandis",
+#                                             "Haplotype 2",
+#                                             "Haplotype 11",
+#                                             "Haplotype 5a",
+#                                             "Haplotype 8a")),
+#                          Color = c("#D55E00",
+#                                    "#0072B2",
+#                                    "#E69F00",
+#                                    #"#56B4E9",
+#                                    "#009E73",
+#                                    "#009E73",
+#                                    "#e63946",
+#                                    "#CC79A7"))
+#                                    
+# color_mapping <- setNames(cols.haplotype$Color, cols.haplotype$Haplotype)
+
+
+cols.species <- cbind.data.frame(Species = factor(c("P. tuahiniensis",
+                                            "P. meandrinaP. grandis",
+                                            "P. verrucosa",
+                                            "P. grandis",
+                                            "P. effusa",
+                                            "P. acuta",
+                                            "P. meandrina")),
+                         Color = c("#D55E00",
+                                   "#0072B2",
+                                   "#E69F00",
+                                   "#56B4E9",
+                                   "#009E73",
+                                   "#e63946",
+                                   "#0072B2"))
+                                   
+color_mapping <- setNames(cols.species$Color, cols.species$Species)
+
+
+
+```
+Join id and size and set size categories for ploting with haplotype
+```{r}
+
+colnames(data_h)
+colnames(size.data)
+
+
+
+data_h$Sample.ID <- as.integer(data_h$Sample.ID)
+
+
+data_h <- left_join(data_h, size.data, by = "Sample.ID")
+
+data_h <- data_h %>%
+  select(Sample.ID, Site.x, Transect.x,Haplotype, Average.Diameter.cm)
+
+colnames(data_h) <- c("Sample.ID", "Site", "Transect", "Haplotype", "Average.Diameter.cm")
+
+# Define the break points for the categories
+breaks <- c(0,1, 2,5, 14, Inf)  # Adjust these values as needed
+labels <- c("0-1cm", "1-2cm", ">2cm-5cm", ">5cm-14cm", ">14cm")  # Category labels
+
+# #####Test with the 3 new categories used in moorea for defining the size class of the different corals sizes#########
+# breaks <- c(0, 1, 5, Inf)
+# labels <- c("0-1cm", "1-5cm", ">5cm")  # Category labels
+
+
+
+
+
+# Create a new column for LifeStage based on Average.Diameter.cm
+data_h$LifeStage <- cut(data_h$Average.Diameter.cm, 
+                      breaks = breaks, 
+                      labels = labels, 
+                      right = FALSE)  # Use right=FALSE to make intervals [a, b)
+
+#removing the raw with NA for sizes because we don't have the pics to extract the data
+data_clean <- data_h %>%
+  filter(if_all(everything(), ~ !is.na(.)))
+
+
+
+```
+Join id and size and set size categories
+```{r}
+
+colnames(data)
+colnames(size.data)
+
+
+
+data$Sample.ID <- as.integer(data$Sample.ID)
+
+
+data <- left_join(data, size.data, by = "Sample.ID")
+
+data <- data %>%
+  select(Sample.ID, Site.x, Transect.x,Species, Average.Diameter.cm)
+
+colnames(data) <- c("Sample.ID", "Site", "Transect", "Species", "Average.Diameter.cm")
+
+# Define the break points for the categories
+breaks <- c(0,2, 5, 14, Inf)  # Adjust these values as needed
+labels <- c("0-2cm", ">2cm-5cm", ">5cm-14cm", ">14cm")  # Category labels
+
+# #####Test with the 3 new categories used in moorea for defining the size class of the different corals sizes#########
+# breaks <- c(0, 1, 5, Inf)
+# labels <- c("0-1cm", "1-5cm", ">5cm")  # Category labels
+
+# Create a new column for LifeStage based on Average.Diameter.cm
+data$LifeStage <- cut(data$Average.Diameter.cm, 
+                      breaks = breaks, 
+                      labels = labels, 
+                      right = FALSE)  # Use right=FALSE to make intervals [a, b)
+
+
+```
+
+Moorea site map
+```{r}
+register_google(key = "AIzaSyBZdfwg7iNsfLNu9raT7xG3Gb8nP1VNIPM") ### use your own API
+
+# location
+Moorea<-data.frame(lon = -149.83246425684064, lat = -17.531092816791094)
+
+#Map base
+M1<-get_map(Moorea,zoom = 12, maptype = 'satellite')
+
+bbx <- c(left=-149.802,bottom= -17.480,right=-149.805,top=-17.475)
+x <- c(bbx["left"], bbx["left"], bbx["right"], bbx["right"])
+y <- c(bbx["bottom"], bbx["top"], bbx["top"], bbx["bottom"])
+df <- data.frame(x, y)
+
+sitedata <- read.csv("Data/completed.transect.site.coords.csv")
+str(sitedata)
+
+labels <- sitedata$site.name
+
+MooreaSitemap<-ggmap(M1)+
+  scalebar(x.min = -149.75, x.max = -149.79,y.min = -17.60, y.max = -17.58,
+           model = 'WGS84', box.fill = c("yellow", "white"), st.color = "white",st.dist=0.3,
+           location =  "bottomright", transform = TRUE, dist_unit = "km", dist = 1) +
+  geom_point(data = sitedata, mapping = aes(x=long, y=lat), size=2, color="yellow")+
+  geom_text(data = sitedata, aes(x=long, y=lat, label=site.name),vjust = -2,size=3, color="yellow")+
+  xlab("")+
+  ylab("")
+
+MooreaSitemap
+
+
+```
+```{r}
+#Calculate relative abundance per Site by haplotype and Life Stage
+
+
+data_h <- data_h %>%
+  filter(!is.na(Site) & !is.na(Haplotype))
+
+data_h  <- data_h %>%
+  filter(!Site=="NA") %>%
+  filter(!Haplotype=="NA") %>%
+  filter(!Sample.ID==3353)%>%
+  filter(!Sample.ID==3818)%>%
+  filter(!Sample.ID==3553)%>%
+  filter(!Sample.ID==449)%>%
+  filter(!Sample.ID==450)%>%
+  filter(!Sample.ID==518)%>%
+  filter(!Sample.ID==543)%>%
+  filter(!Sample.ID==598)%>%
+  filter(!Sample.ID==613)%>%
+  filter(!Sample.ID==614)%>%
+  filter(!Sample.ID==615)%>%
+  filter(!Sample.ID==617)%>%
+  filter(!Sample.ID==619)%>%
+  filter(!Sample.ID==675)%>%
+  filter(!Sample.ID==886)%>%
+  filter(!Sample.ID==888)%>%
+  filter(!Sample.ID==921)%>%
+  filter(!Sample.ID==976)%>%
+  filter(!Sample.ID==1124)%>%
+  filter(!Sample.ID==1419)%>%
+  filter(!Sample.ID==1838)%>%
+  filter(!Sample.ID==2030)%>%
+  filter(!Sample.ID==2071)%>%
+  filter(!Sample.ID==2232)%>%
+  filter(!Sample.ID==2459)%>%
+  filter(!Sample.ID==2573)%>%
+  filter(!Sample.ID==2979)%>%
+  filter(!Sample.ID==3111)%>%
+  filter(!Sample.ID==3122)%>%
+  filter(!Sample.ID==3129)%>%
+  filter(!Sample.ID==3139)%>%
+  filter(!Sample.ID==3154)%>%
+  filter(!Sample.ID==3258)%>%
+  filter(!Sample.ID==3325)
+  
+  
+relative_abundance.LS_h <- data_h %>%
+  group_by(Site, LifeStage, Haplotype) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  group_by(Site, LifeStage) %>%
+  mutate(Relative_Abundance = Count / sum(Count)) %>%
+  ungroup()
+
+relative_abundance.LS_h$ Site <- factor(relative_abundance.LS_h$Site, levels = c("S18","S15","S14", "S12", "S11","S9",
+                                                                      "S6", "S5","S4", "S3", "S2","S1"))
+
+relative_abundance.LS_h <-relative_abundance.LS_h %>%
+  filter(Site %in% c("S11", "S14", "S15", "S12", "S18", "S2", "S4", "S3", "S5" , "S6", "S9", "S1"))
+
+str(relative_abundance.LS_h)
+
+# Calculate sample size for each Site and LifeStage
+sample_sizes_h <- relative_abundance.LS_h %>%
+  group_by(Site, LifeStage) %>%
+  summarise(Sample_Size = sum(Count), .groups = "drop")
+
+RA.LS.plot_h <- ggplot(relative_abundance.LS_h, aes(x = Site, y = Relative_Abundance, fill = Haplotype)) +
+  geom_bar(stat = "identity", position = "fill") +
+  facet_wrap(~ LifeStage, ncol=5) +
+  labs(x = "Site",
+       y = "Relative Abundance") +
+  theme_minimal() +  # Clean theme
+  scale_y_continuous(labels = scales::percent) +  # Convert y-axis to percentage
+  scale_fill_manual(values = color_mapping_h) +  # Set the fill colors
+  theme_minimal() +
+  coord_flip()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top") +
+  # Add sample size text
+  geom_text(data = sample_sizes_h, aes(x = Site, y = 1.1, label = Sample_Size),inherit.aes = FALSE, size = 2, vjust = 0, color = "black")
+RA.LS.plot_h 
+
+ggsave("Output/relabund.bysize_haplotype.jpg", RA.LS.plot_h , width = 6, height = 4 )
+
+```
+
+Calculate relative abundance per Site by Species and Life Stage
+```{r}
+
+data  <- data %>%
+  filter(!Site=="NA") %>%
+  filter(!Species=="NA") %>%
+   filter(!LifeStage=="NA")%>%
+  filter(!Sample.ID==3353)%>% #all good
+ filter(!Sample.ID==3818)%>% #all good
+  filter(!Sample.ID==3553)%>% #no pics so no size 
+  filter(!Sample.ID==449)%>% #no pics but can be fix 
+  filter(!Sample.ID==450)%>% #everything ok
+  filter(!Sample.ID==518)%>% #no pics
+  filter(!Sample.ID==543)%>% #no pics
+  filter(!Sample.ID==598)%>% #no pics
+  filter(!Sample.ID==613)%>% #no pics
+  filter(!Sample.ID==614)%>% #no pics
+  filter(!Sample.ID==615)%>% #no pics
+  filter(!Sample.ID==617)%>% #no pics
+  filter(!Sample.ID==619)%>% #no pics
+  filter(!Sample.ID==675)%>% #no pics
+  filter(!Sample.ID==886)%>% #no pics
+  filter(!Sample.ID==888)%>% #no pics
+  filter(!Sample.ID==921)%>% #no pics
+  filter(!Sample.ID==976)%>% #no pics
+  filter(!Sample.ID==1124)%>% #no pics
+  filter(!Sample.ID==1419)%>% #no pics but chance to get it 
+  filter(!Sample.ID==1838)%>% #no pics
+  filter(!Sample.ID==2030)%>% #no pics
+  filter(!Sample.ID==2071)%>% #all good
+  filter(!Sample.ID==2232)%>% #no pics
+  filter(!Sample.ID==2459)%>% #no pics
+  filter(!Sample.ID==2573)%>% #no pics
+  filter(!Sample.ID==2979)%>% #all good
+  filter(!Sample.ID==3111)%>% #all good
+ filter(!Sample.ID==3122)%>% #all good
+ filter(!Sample.ID==3129)%>% #we have the pic and size but not the sequence (sequence fail)
+ # filter(!Sample.ID==3139)%>% #all good
+  filter(!Sample.ID==3154)%>% #no pics
+#  filter(!Sample.ID==3258)%>% #all good
+  filter(!Sample.ID==3325) #no pics
+ 
+ 
+relative_abundance.LS <- data %>%
+  group_by(Site, LifeStage, Species) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  group_by(Site, LifeStage) %>%
+  mutate(Relative_Abundance = Count / sum(Count)) %>%
+  ungroup()
+
+relative_abundance.LS$Site <- factor(relative_abundance.LS$Site, levels = c("S18","S15","S14", "S12", "S11","S9",
+                                                                      "S6", "S5","S4", "S3", "S2","S1"))
+
+relative_abundance.LS <-relative_abundance.LS %>%
+  filter(Site %in% c("S11", "S14", "S15", "S12", "S18", "S2", "S4", "S3", "S5" , "S6", "S9", "S1"))
+
+str(relative_abundance.LS)
+
+# Calculate sample size for each Site and LifeStage
+sample_sizes <- relative_abundance.LS %>%
+  group_by(Site, LifeStage) %>%
+  summarise(Sample_Size = sum(Count), .groups = "drop")
+
+RA.LS.plot <- ggplot(relative_abundance.LS, aes(x = Site, y = Relative_Abundance, fill = Species)) +
+  geom_bar(stat = "identity", position = "fill") +
+  facet_wrap(~ LifeStage, ncol=5) +
+  labs(x = "",
+       y = "Relative Abundance") +
+  theme_minimal() +  # Clean theme
+  scale_y_continuous(labels = scales::percent) +  # Convert y-axis to percentage
+  scale_fill_manual(values = color_mapping) +  # Set the fill colors
+  theme_minimal() +
+  coord_flip()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "right") +
+  # Add sample size text
+  geom_text(data = sample_sizes, aes(x = Site, y = 1.1, label = Sample_Size),inherit.aes = FALSE, size = 1, vjust = 0, color = "black")
+RA.LS.plot 
+
+ggsave("Output/relabund.bysize.jpg", RA.LS.plot , width = 6, height = 4 )
+
+```
+
+Calculate relative abundance per Site by Species and Life Stage
+```{r}
+
+relative_abundance <- data %>%
+  group_by(Site,Species) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  group_by(Site) %>%
+  mutate(Relative_Abundance = Count / sum(Count)) %>%
+  ungroup()
+
+# Calculate sample sizes and add to relative_abundance
+sample_sizes <- data %>%
+  group_by(Site) %>%
+  summarise(sample_size = n(), .groups = 'drop')
+
+# Join sample sizes with relative abundance data
+relative_abundance <- relative_abundance %>%
+  left_join(sample_sizes, by = "Site")
+
+relative_abundance <- relative_abundance %>%
+  left_join(sample.counts, by = "Site")
+
+
+relative_abundance$Site <- factor(relative_abundance$Site, levels = c("S18","S15","S14", "S12", "S11","S9",
+                                                                      "S6", "S5","S4", "S3", "S2","S1"))
+
+
+RA.plot <- ggplot(relative_abundance, aes(x = Site, y = Relative_Abundance, fill = Species)) +
+  geom_bar(stat = "identity", position = "stack") +  # Use stacked bars
+  geom_text(aes(label = sample_size, y = -0.10), 
+            color = "black", 
+            size = 1.5) +  # Adjust the size as needed
+  geom_text(aes(label = total, y = -0.02), 
+            color = "blue", 
+            size = 1.5) +  # Adjust the size as needed
+  labs(x = "Site",
+       y = "Relative Abundance") +
+  theme_minimal() +  # Clean theme
+  scale_y_continuous(labels = scales::percent) +  # Convert y-axis to percentage
+  scale_fill_manual(values = color_mapping) +  # Set the fill colors
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+  # Rotate x-axis labels for better visibility
+  coord_flip()+
+  theme(legend.position = "")
+RA.plot 
+
+ggsave("Output/relabund.bysite.jpg", RA.plot , width = 6, height = 4 )
+
+# #ploting the same graph for the RA but per shor, so it's mean North East and West 
+# shore_lookup <- tibble(
+#   Site = c("S2","S3","S4","S5","S6","S9","S11","S12","S14","S15","S18"),
+#   Shore = c("North","North","North","North",
+#             "East","East","East",
+#             "West","West","West","West")
+# 
+# #combining shore_lookup table inside the relative abundance to generate the workflow 
+# relative_abundance_merge <- merge(shore_lookup, relative_abundance, by = "Site")
+# 
+# #Aggregate by Shore (pooling sites)
+# shore_abundance <- relative_abundance_merge %>%
+#   group_by(Shore, Species) %>%
+#   summarise(Relative_Abundance = sum(Relative_Abundance),
+#             sample_size = sum(sample_size),
+#             total = sum(total),
+#             .groups = "drop") %>%
+#   mutate(Relative_Abundance = Relative_Abundance / sum(Relative_Abundance))
+# 
+# #generate the RA plot 
+# shore_plot <- ggplot(shore_abundance,
+#                      aes(x = Shore, y = Relative_Abundance, fill = Species)) +
+#   geom_bar(stat = "identity", position = "stack") +
+#   
+#   # sample size label
+#   geom_text(aes(label = sample_size, y = 0.10),
+#             color = "black", size = 2.5) +
+#   
+#   # total label
+#   geom_text(aes(label = total, y = 0.02),
+#             color = "blue", size = 2.5) +
+#   
+#   labs(x = "Shore",
+#        y = "Relative Abundance") +
+#   theme_minimal() +
+#   scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+#   scale_fill_manual(values = color_mapping) +
+#   theme(axis.text.x = element_text(angle = 0, hjust = 0.5),
+#         legend.position = "") +
+#   coord_flip()
+# 
+# shore_plot
+# 
+# shore_plot <- ggplot(shore_abundance,
+#                      aes(x = Shore, y = Relative_Abundance, fill = Species)) +
+#   geom_bar(stat = "identity", position = "stack") +
+# 
+#   # sample size label (inside bar)
+#   geom_text(aes(label = sample_size, y = 0.02),
+#             color = "black", size = 2.5) +
+# 
+#   # total label (inside bar)
+#   geom_text(aes(label = total, y = 0.10),
+#             color = "blue", size = 2.5) +
+# 
+#   labs(x = "Shore",
+#        y = "Relative Abundance") +
+#   theme_minimal() +
+#   scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+#   scale_fill_manual(values = color_mapping) +
+#   theme(axis.text.x = element_text(angle = 0, hjust = 0.5),
+#         legend.position = "") +
+#   coord_flip()
+# 
+# shore_plot
+```
+
+#PERMANOVA to define the abundnace and dominance of one species at each shore 
+```{r}
+comm_matrix <- relative_abundance %>%
+  select(Site, Species, Relative_Abundance) %>%
+  pivot_wider(names_from = Species,
+              values_from = Relative_Abundance,
+              values_fill = 0) %>%
+  as.data.frame()
+
+# Save the site names
+site_names <- comm_matrix$Site
+
+# Remove Site column for analysis
+comm_matrix <- comm_matrix %>% select(-Site)
+
+shore_lookup <- data.frame(
+  Site = c("S2","S3","S4","S5","S6","S9","S11","S12","S14","S15","S18"),
+  Shore = c("North","North","North","North",
+            "East","East","East",
+            "West","West","West","West")
+)
+
+metadata <- data.frame(Site = site_names) %>%
+  left_join(shore_lookup, by = "Site")
+
+#running the PERMANOVA
+set.seed(123)  # reproducibility
+
+permanova <- adonis2(
+  comm_matrix ~ Shore,
+  data = metadata,
+  method = "bray",      # Bray–Curtis for ecological communities
+  permutations = 999
+)
+
+print(permanova)
+
+
+# Significant difference between shores:
+# p = 0.004 < 0.01 → highly significant
+# This means species composition differs among the three shores (North, East, West).
+# Effect size:
+# R2 = 0.619 → Shore explains about 62% of the variation in coral species composition.
+# That’s a large effect — shore strongly structures species dominance.
+# Residual:
+# Remaining ~38% of variation is within-shore differences (between sites of the same shore).
+
+
+#Prepare community matrix
+comm_matrix <- relative_abundance %>%
+  select(Site, Species, Relative_Abundance) %>%
+  pivot_wider(names_from = Species,
+              values_from = Relative_Abundance,
+              values_fill = 0) %>%
+  as.data.frame()
+
+site_names <- comm_matrix$Site
+comm_matrix <- comm_matrix %>% select(-Site)
+
+#Prepare metadata with shore info
+
+shore_lookup <- data.frame(
+  Site = c("S2","S3","S4","S5","S6","S9","S11","S12","S14","S15","S18"),
+  Shore = c("North","North","North","North",
+            "East","East",
+            "East",
+            "West","West","West","West")
+)
+
+metadata <- data.frame(Site = site_names) %>%
+  left_join(shore_lookup, by = "Site")
+
+#Overall PERMANOVA
+set.seed(123)
+permanova <- adonis2(
+  comm_matrix ~ Shore,
+  data = metadata,
+  method = "bray",
+  permutations = 999
+)
+
+print(permanova)
+
+# Make sure row names are site names
+rownames(comm_matrix) <- metadata$Site
+
+#Subset metadata to match comm_matrix rows
+metadata <- metadata %>%
+  filter(Site %in% rownames(comm_matrix)) %>%  # keep only rows present in comm_matrix
+  arrange(match(Site, rownames(comm_matrix)))  # ensure same order
+
+
+metadata_fixed <- metadata %>%
+  filter(Site %in% rownames(comm_matrix)) %>%  # only sites in comm_matrix
+  arrange(match(Site, rownames(comm_matrix)))  # same order
+
+# Quick check
+all(rownames(comm_matrix) == metadata_fixed$Site)  # should return TRUE
+
+
+#Pairwise PERMANOVA (which shores differ)
+library(pairwiseAdonis)
+
+pairwise_res <- pairwise.adonis(
+  x = comm_matrix,
+  factors = metadata_fixed$Shore,
+  perm = 999,
+  sim.method = "bray"
+)
+
+pairwise_res
+
+
+#East vs West	1	  0.00336904	0.3995135	0.07399064	0.788	1.000	
+#East vs North	1	0.05767296	6.9904809	0.58300255	0.032	0.096	
+#West vs North	1	0.07749451	13.7998213	0.69696696	0.036	0.108	
+
+#SIMPER (which species drive differences)
+simper_res <- simper(comm_matrix, group = metadata_fixed$Shore)
+summary(simper_res)
+
+#result
+# Contrast: East_West 
+# 
+#                 average      sd   ratio     ava     avb cumsum     p
+# P. meandrina    0.02749 0.01242 2.21360 0.62290 0.61110  0.234 0.993
+# P. verrucosa    0.02320 0.01377 1.68450 0.08370 0.08720  0.431 0.420
+# P. acuta        0.01818 0.01286 1.41340 0.03300 0.06050  0.586 0.153
+# P. grandis      0.01783 0.01182 1.50790 0.11320 0.09940  0.738 0.280
+# P. effusa       0.01626 0.01317 1.23450 0.05850 0.04690  0.876 0.998
+# P. tuahiniensis 0.01453 0.01138 1.27730 0.08870 0.09490  1.000 0.834
+# 
+# Contrast: East_North 
+# 
+#                 average      sd   ratio     ava     avb cumsum     p   
+# P. meandrina    0.07440 0.03242 2.29510 0.62290 0.47410  0.351 0.007 **
+# P. effusa       0.07187 0.02692 2.66970 0.05850 0.20230  0.690 0.016 * 
+# P. verrucosa    0.02532 0.01811 1.39770 0.08370 0.06630  0.809 0.253   
+# P. tuahiniensis 0.01764 0.01027 1.71840 0.08870 0.12400  0.893 0.400   
+# P. acuta        0.01165 0.00752 1.54970 0.03300 0.03160  0.948 0.813   
+# P. grandis      0.01111 0.00832 1.33570 0.11320 0.10180  1.000 0.891   
+# ---
+# Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Contrast: West_North 
+# 
+#                 average      sd   ratio     ava     avb cumsum     p   
+# P. effusa       0.07769 0.02031 3.82600 0.04690 0.20230  0.361 0.004 **
+# P. meandrina    0.06849 0.01951 3.51000 0.61110 0.47410  0.679 0.010 **
+# P. tuahiniensis 0.02057 0.01086 1.89500 0.09490 0.12400  0.774 0.086 . 
+# P. verrucosa    0.01749 0.01408 1.24200 0.08720 0.06630  0.856 0.877   
+# P. grandis      0.01559 0.01182 1.31900 0.09940 0.10180  0.928 0.507   
+# P. acuta        0.01551 0.01228 1.26300 0.06050 0.03160  1.000 0.455  
+
+# SIMPER per shore (dominant species)
+#Function to summarize dominant species per shore
+dominant_species <- function(shore_name) {
+  shore_data <- relative_abundance %>%
+    filter(Site %in% shore_lookup$Site[shore_lookup$Shore == shore_name]) %>%
+    group_by(Species) %>%
+    summarise(RelAbundance = sum(Relative_Abundance), .groups = "drop") %>%
+    arrange(desc(RelAbundance))
+  
+  return(shore_data)
+}
+
+north_dominant <- dominant_species("North")
+east_dominant <- dominant_species("East")
+west_dominant <- dominant_species("West")
+
+north_dominant
+#result north dominance
+# P. meandrina	1.8963982			
+# P. effusa	0.8090835			
+# P. tuahiniensis	0.4958708			
+# P. grandis	0.4070576			
+# P. verrucosa	0.2652667			
+# P. acuta	0.1263231	
+
+east_dominant
+#result east dominance
+# P. meandrina	1.8687260			
+# P. grandis	0.3395347			
+# P. tuahiniensis	0.2660480			
+# P. verrucosa	0.2509585			
+# P. effusa	0.1756129			
+# P. acuta	0.0991199	
+
+west_dominant
+#result west dominance
+# P. meandrina	2.4442950			
+# P. grandis	0.3977854			
+# P. tuahiniensis	0.3796864			
+# P. verrucosa	0.3488222			
+# P. acuta	0.2418624			
+# P. effusa	0.1875485	
+
+#include size classes and see whether certain size classes drive differences between shores
+#Prepare the data including size classes
+data_shore <- relative_abundance.LS %>%
+  left_join(shore_lookup, by = "Site")
+
+#Aggregate by Shore and Size Class
+# Combine Species and LifeStage to make unique columns
+data_sizeclass <- data_shore %>%
+  mutate(SpeciesSize = paste(Species, LifeStage, sep = "_")) %>%
+  group_by(Site, SpeciesSize) %>%
+  summarise(RelAbundance = sum(Relative_Abundance), .groups = "drop") %>%
+  pivot_wider(names_from = SpeciesSize, values_from = RelAbundance, values_fill = 0) %>%
+  as.data.frame()
+
+# Save site names as rownames
+rownames(data_sizeclass) <- data_sizeclass$Site
+comm_matrix_size <- data_sizeclass %>% select(-Site)
+
+#align metadata
+metadata_fixed <- metadata %>%
+  filter(Site %in% rownames(comm_matrix_size)) %>%
+  arrange(match(Site, rownames(comm_matrix_size)))
+
+all(rownames(comm_matrix_size) == metadata_fixed$Site)  # should be TRUE
+
+#Run PERMANOVA by Shore using size classes
+set.seed(123)
+permanova_size <- adonis2(
+  comm_matrix_size ~ Shore,
+  data = metadata_fixed,
+  method = "bray",
+  permutations = 999
+)
+
+print(permanova_size)
+#result 
+#          Df SumOfSqs      R2      F Pr(>F)   
+# Model     2  0.12264 0.40364 2.7073  0.002 **
+# Residual  8  0.18120 0.59636                 
+# Total    10  0.30384 1.00000      
+
+#Pairwise PERMANOVA to shows which shores differ significantly based on size-class composition.
+pairwise_res_size <- pairwise.adonis(
+  x = comm_matrix_size,
+  factors = metadata_fixed$Shore,
+  perm = 999,
+  sim.method = "bray"
+)
+
+pairwise_res_size
+
+#result 
+# East vs West	1	0.03669592	1.545718	0.2361419	0.088	0.264	
+# East vs North	1	0.04877396	1.654035	0.2485762	0.086	0.258	
+# West vs North	1	0.09384782	5.849574	0.4936527	0.036	0.108	
+
+#SIMPER to see which size classes drive differences
+simper_size <- simper(comm_matrix_size, group = metadata_fixed$Shore)
+summary(simper_size)
+
+#result
+# Contrast: East_West 
+# 
+#                            average       sd    ratio      ava      avb cumsum     p  
+# P. tuahiniensis_>14cm     0.024752 0.027610 0.896000 0.335000 0.175400  0.106 0.208  
+# P. verrucosa_>14cm        0.021699 0.006534 3.321000 0.218700 0.135200  0.198 0.039 *
+# P. meandrina_>5cm-14cm    0.020459 0.016962 1.206000 0.619900 0.725600  0.285 0.575  
+# P. meandrina_>14cm        0.019194 0.007438 2.581000 0.372700 0.526300  0.367 0.074 .
+# P. grandis_>14cm          0.014030 0.009053 1.550000 0.049800 0.146000  0.427 0.061 .
+# P. grandis_>2cm-5cm       0.012706 0.009030 1.407000 0.111800 0.107300  0.481 0.342  
+# P. acuta_>2cm-5cm         0.012680 0.009134 1.388000 0.017000 0.118400  0.535 0.026 *
+# P. tuahiniensis_>5cm-14cm 0.012177 0.012061 1.010000 0.138700 0.052900  0.587 0.320  
+# P. effusa_>2cm-5cm        0.011657 0.006634 1.757000 0.133500 0.164100  0.637 0.939  
+# P. meandrina_>2cm-5cm     0.011603 0.008820 1.315000 0.545800 0.483000  0.687 0.431  
+# P. acuta_0-2cm            0.010785 0.005497 1.962000 0.074000 0.129000  0.733 0.106  
+# P. verrucosa_>2cm-5cm     0.008580 0.006238 1.375000 0.083300 0.050000  0.769 0.133  
+# P. grandis_>5cm-14cm      0.007001 0.004635 1.510000 0.108500 0.069800  0.799 0.185  
+# P. tuahiniensis_>2cm-5cm  0.006726 0.005033 1.336000 0.108600 0.077100  0.828 0.442  
+# P. verrucosa_>5cm-14cm    0.006622 0.007281 0.909000 0.075000 0.124200  0.856 0.565  
+# P. grandis_0-2cm          0.006499 0.005844 1.112000 0.100800 0.061600  0.884 0.402  
+# P. effusa_>5cm-14cm       0.006385 0.004362 1.464000 0.057900 0.020400  0.911 0.915  
+# P. meandrina_0-2cm        0.006180 0.004210 1.468000 0.692900 0.709200  0.937 0.992  
+# P. verrucosa_0-2cm        0.003920 0.001752 2.237000 0.039500 0.008200  0.954 0.012 *
+# P. effusa_>14cm           0.003258 0.003675 0.886000 0.023800 0.006800  0.968 0.894  
+# P. tuahiniensis_0-2cm     0.003188 0.001872 1.703000 0.052500 0.041900  0.982 0.966  
+# P. effusa_0-2cm           0.002139 0.002085 1.026000 0.040300 0.050100  0.991 1.000  
+# P. acuta_>14cm            0.001287 0.001572 0.819000 0.000000 0.010300  0.996 0.157  
+# P. acuta_>5cm-14cm        0.000893 0.001615 0.553000 0.000000 0.007100  1.000 0.829  
+# ---
+# Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Contrast: East_North 
+# 
+#                            average       sd    ratio      ava      avb cumsum     p  
+# P. meandrina_0-2cm        0.025717 0.013021 1.975000 0.692900 0.487100  0.096 0.026 *
+# P. tuahiniensis_>14cm     0.024761 0.019417 1.275200 0.335000 0.265900  0.189 0.183  
+# P. effusa_0-2cm           0.023818 0.013096 1.818700 0.040300 0.230800  0.279 0.018 *
+# P. meandrina_>5cm-14cm    0.023115 0.014815 1.560300 0.619900 0.527100  0.365 0.250  
+# P. effusa_>2cm-5cm        0.022405 0.014248 1.572400 0.133500 0.289200  0.449 0.043 *
+# P. verrucosa_>14cm        0.018038 0.012868 1.401800 0.218700 0.223100  0.517 0.272  
+# P. effusa_>5cm-14cm       0.014145 0.010658 1.327100 0.057900 0.145100  0.570 0.292  
+# P. meandrina_>2cm-5cm     0.012723 0.009648 1.318700 0.545800 0.460300  0.618 0.201  
+# P. grandis_>14cm          0.012304 0.007648 1.608700 0.049800 0.125300  0.664 0.182  
+# P. tuahiniensis_>5cm-14cm 0.012039 0.004358 2.762700 0.138700 0.149600  0.709 0.350  
+# P. verrucosa_>2cm-5cm     0.009431 0.007569 1.246100 0.083300 0.023700  0.745 0.036 *
+# P. acuta_0-2cm            0.009208 0.006368 1.446100 0.074000 0.080400  0.779 0.379  
+# P. meandrina_>14cm        0.008227 0.005068 1.623300 0.372700 0.336700  0.810 0.999  
+# P. verrucosa_>5cm-14cm    0.007486 0.004376 1.710700 0.075000 0.084400  0.838 0.387  
+# P. grandis_>2cm-5cm       0.007363 0.004922 1.495800 0.111800 0.108100  0.866 0.887  
+# P. tuahiniensis_>2cm-5cm  0.006872 0.004828 1.423400 0.108600 0.092200  0.891 0.439  
+# P. effusa_>14cm           0.006135 0.005511 1.113100 0.023800 0.049100  0.914 0.214  
+# P. grandis_0-2cm          0.005875 0.003196 1.838200 0.100800 0.093600  0.936 0.538  
+# P. grandis_>5cm-14cm      0.005639 0.004425 1.274300 0.108500 0.083000  0.958 0.726  
+# P. tuahiniensis_0-2cm     0.004836 0.002215 2.183400 0.052500 0.091200  0.976 0.267  
+# P. verrucosa_0-2cm        0.003087 0.001905 1.620500 0.039500 0.016800  0.987 0.151  
+# P. acuta_>2cm-5cm         0.002034 0.001282 1.586800 0.017000 0.026500  0.995 0.995  
+# P. acuta_>5cm-14cm        0.001362 0.001669 0.816200 0.000000 0.010900  1.000 0.456  
+# P. acuta_>14cm            0.000000 0.000000      NaN 0.000000 0.000000  1.000    NA  
+# ---
+# Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Contrast: West_North 
+# 
+#                            average       sd    ratio      ava      avb cumsum     p    
+# P. meandrina_0-2cm        0.027758 0.011707 2.371200 0.709200 0.487100  0.105 0.006 ** 
+# P. meandrina_>5cm-14cm    0.024821 0.012686 1.956600 0.725600 0.527100  0.199 0.112    
+# P. meandrina_>14cm        0.023706 0.008650 2.740600 0.526300 0.336700  0.289 0.005 ** 
+# P. effusa_0-2cm           0.022590 0.013190 1.712600 0.050100 0.230800  0.375 0.007 ** 
+# P. effusa_>2cm-5cm        0.018794 0.010059 1.868400 0.164100 0.289200  0.446 0.176    
+# P. effusa_>5cm-14cm       0.016186 0.012132 1.334200 0.020400 0.145100  0.507 0.033 *  
+# P. verrucosa_>14cm        0.013659 0.007101 1.923700 0.135200 0.223100  0.559 0.849    
+# P. tuahiniensis_>5cm-14cm 0.012091 0.005055 2.391900 0.052900 0.149600  0.605 0.227    
+# P. grandis_>2cm-5cm       0.011854 0.008256 1.435900 0.107300 0.108100  0.650 0.459    
+# P. tuahiniensis_>14cm     0.011720 0.007642 1.533700 0.175400 0.265900  0.694 0.736    
+# P. acuta_>2cm-5cm         0.011487 0.008885 1.292900 0.118400 0.026500  0.738 0.016 *  
+# P. meandrina_>2cm-5cm     0.008769 0.006405 1.369100 0.483000 0.460300  0.771 0.824    
+# P. grandis_>14cm          0.008000 0.005740 1.393500 0.146000 0.125300  0.801 0.961    
+# P. acuta_0-2cm            0.007824 0.005485 1.426500 0.129000 0.080400  0.831 0.836    
+# P. verrucosa_>5cm-14cm    0.006957 0.004040 1.721800 0.124200 0.084400  0.857 0.475    
+# P. tuahiniensis_0-2cm     0.006221 0.003480 1.787700 0.041900 0.091200  0.881 0.013 *  
+# P. effusa_>14cm           0.006135 0.005550 1.105400 0.006800 0.049100  0.904 0.141    
+# P. grandis_0-2cm          0.005976 0.004389 1.361400 0.061600 0.093600  0.926 0.546    
+# P. grandis_>5cm-14cm      0.005556 0.003991 1.392300 0.069800 0.083000  0.948 0.784    
+# P. tuahiniensis_>2cm-5cm  0.005522 0.003845 1.436100 0.077100 0.092200  0.969 0.801    
+# P. verrucosa_>2cm-5cm     0.003615 0.002786 1.297300 0.050000 0.023700  0.982 0.914    
+# P. verrucosa_0-2cm        0.001800 0.001521 1.183600 0.008200 0.016800  0.989 0.975    
+# P. acuta_>5cm-14cm        0.001616 0.001651 0.978800 0.007100 0.010900  0.995 0.230    
+# P. acuta_>14cm            0.001287 0.001554 0.828000 0.010300 0.000000  1.000 0.001 ***
+
+#now we are looking at what size_class drive the communities per shore
+data_shore <- relative_abundance.LS %>%
+  left_join(shore_lookup, by = "Site") %>%
+  mutate(Relative_Abundance = as.numeric(Relative_Abundance))
+
+data_sizeclass <- data_shore %>%
+  mutate(SpeciesSize = paste(Species, LifeStage, sep = "_")) %>%
+  group_by(Site, SpeciesSize) %>%
+  summarise(RelAbundance = sum(Relative_Abundance), .groups = "drop") %>%
+  pivot_wider(names_from = SpeciesSize, values_from = RelAbundance, values_fill = 0) %>%
+  as.data.frame()
+
+#making sure data_sizeclass works well 
+metadata_size <- data_shore %>%
+  distinct(Site, Shore)
+
+# Reorder metadata to match the rows in the community matrix
+metadata_size <- metadata_size[match(data_sizeclass$Site, metadata_size$Site), ]
+
+comm_size <- data_sizeclass %>% select(-Site)
+
+nrow(comm_size)
+length(metadata_size$Shore)
+
+simper_res <- simper(comm_size, metadata_size$Shore)
+summary(simper_res)
+
+shore_size_drivers <- data_shore %>%
+  group_by(Shore, Species, LifeStage) %>%
+  summarise(RelAbundance = sum(Relative_Abundance), .groups = "drop") %>%
+  arrange(Shore, desc(RelAbundance))
+
+#running a stats test to answer the question “Do the overall communities differ among shores when size classes are included?”
+
+
+```
+
+
+
+
+<!-- Combine Map and Life Stage Specific Relative Abundance -->
+<!-- ```{r} -->
+
+<!-- # Combine the two plots and labels -->
+<!-- p1_label <- ggdraw() + draw_plot(MooreaSitemap) + draw_label("A)", x = 0.05, y = 0.97, size = 20, fontface = "bold") -->
+<!-- p2_label <- ggdraw() + draw_plot(RA.LS.plot) + draw_label("B)", x = 0.05, y = 0.97, size = 20, fontface = "bold") -->
+
+<!-- combined_plot <- grid.arrange(p1_label, p2_label, ncol = 2) -->
+
+
+<!-- # Save the combined plot -->
+<!-- ggsave("Output/Poc_RA_SiteMap.pdf", plot = combined_plot, width = 14, height = 6) -->
+<!-- ggsave("Output/Poc_RA_SiteMap.jpg", plot = combined_plot, width = 14, height = 6) -->
+
+
+<!-- ``` -->
+
+
+Combine Map and total Relative Abundance
+```{r}
+
+# Combine the two plots and labels
+p1_label <- ggdraw() + draw_plot(MooreaSitemap) + draw_label("A)", x = 0.05, y = 0.97, size = 20, fontface = "bold")
+p2_label <- ggdraw() + draw_plot(RA.plot) + draw_label("B)", x = 0.05, y = 0.97, size = 20, fontface = "bold")
+p3_label <- ggdraw() + draw_plot(RA.LS.plot) + draw_label("C)", x = 0.05, y = 0.97, size = 20, fontface = "bold")
+
+combined_plot.2 <- grid.arrange(p1_label, p2_label, ncol = 2)
+combined_plot.3 <- grid.arrange(p1_label, p2_label, p3_label, ncol = 3)
+
+
+# Save the combined plot
+ggsave("Output/Poc_RA_LifeStage_SiteMap.pdf", plot = combined_plot.2, width = 20, height = 6)
+ggsave("Output/Poc_RA_LifeStage_SiteMap.jpg", plot = combined_plot.2, width = 14, height = 6)
+
+
+```
+
+
+Density of Pocillopora
+```{r}
+
+sample.transect.counts <- all.data %>%
+  group_by(Site, Transect) %>%
+  summarise(total = n()) 
+sample.transect.counts 
+
+transect_counts <- all.data %>%
+  group_by(Site) %>%
+  summarise(num_transects = n_distinct(Transect))
+
+transect_counts <- left_join(transect_counts, sample.counts, by="Site")
+
+transect.area <- 50 #m2
+transect_counts$Poc.density <- transect_counts$total/ (transect_counts$num_transects * transect.area)
+str(transect_counts)
+
+ggplot(transect_counts, aes(x = Poc.density, y = Site)) +
+  geom_point()+
+  labs(title = "Density Plot of Poc Density by Site",
+       x = "Poc Density",
+       y = "Density") +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+```
+
+```{r}
+#merge the relative abundnace graph with the relative abundnace per size for each site 
+#code generate with chatgpt and modifie. th plot are made with ggplot 
+
+library(patchwork)
+
+#combine two plots side by side 
+ RA.plot + RA.LS.plot  + plot_layout(ncol = 2)
+
+ RA.plot + RA.LS.plot + 
+  plot_layout(ncol = 2) +
+  plot_annotation(title = "Relative Abundance by site",
+                  tag_levels = )  
+combined_plot_site_size <- RA.plot + RA.LS.plot + 
+  plot_layout(ncol = 2) +
+  plot_annotation(title = "Relative Abundance by Species per site and size",
+                  tag_levels = )
+
+ggsave("Output/Relative_Abundance_Combined_site_size.jpg", combined_plot_site_size, width = 10, height = 5, dpi = 300)
+
+
+
+```
+
+#no we have a visual on what going on in the relative abundnace of the 6 sepcies of Pocillopora spp. per sizes and sites  
+#our next goal is to see 
+#  Does site have the similar coral composition btw them?
+#- Does certain species dominate the site by their size? 
+#- 
+
+
+```{r}
+#running the permanova of the plot 
+library(vegan)
+
+# Use original unscaled matrix
+adonis_result <- adonis2(pca_matrix ~ site_labels, method = "euclidean")
+
+adonis_result
+
+```
+
+#site frequency plot 
+```{r}
+#ggplot(data_h, aes(x = Average.Diameter.cm, y = Count, color = Species, group = Haplotype)) +
+#  geom_line(size = 1.2) +
+#  facet_wrap(~ Site, scales = "free_y") +
+#  theme_minimal() +
+#  labs(title = "Size Class Trends per Species Across Sites",
+#       y = "Count", x = "Size Class") +
+#  scale_color_manual(values = color_mapping) +
+#  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Create named color vector for mapping
+color_mapping_h <- setNames(cols.haplotype$Color, cols.haplotype$Haplotype)
+
+
+# Plot with custom colors
+frequency <- ggplot(data_h, aes(x = Average.Diameter.cm, colour = Haplotype, fill = Haplotype)) +
+  geom_freqpoly(bins = 10) +
+  facet_wrap(~Site, ncol = 3) +
+  scale_color_manual(values = color_mapping_h) +  # apply your color mapping
+  scale_fill_manual(values = color_mapping_h) +   # apply for fill (if needed)
+  theme_bw()
+
+frequency
+ggsave("Output/Relative_Abundance_haplotype_frequency.jpg", frequency, width = 10, height = 5, dpi = 300)
+
+#pretty version of the graph bellow 
+frequency_p <- ggplot(data_h, aes(x = Average.Diameter.cm, colour = Haplotype)) +
+  geom_freqpoly(bins = 10, size = 1.2) +
+  xlim(0, NA)+ # Thicker lines for visibility
+  facet_wrap(~Site, ncol = 3, scales = "free_y") +  # Adjust y-axis per site
+  scale_color_manual(values = color_mapping_h, name = "Haplotype") +
+  labs(
+    title = "Size Frequency of Pocillopora Haplotypes by Site",
+    subtitle = "Based on Average Colony Diameter",
+    x = "Average Diameter (cm)",
+    y = "Frequency"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    strip.text = element_text(face = "bold", size = 10),  # Facet titles
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 12),
+    legend.position = "bottom",
+    legend.title = element_text(size = 11),
+    legend.text = element_text(size = 9),
+    panel.grid.minor = element_blank()  # Clean up minor grid lines
+  ) 
+
+frequency_p
+ggsave("Output/Relative_Abundance_haplotype_frequency_p.jpg", frequency_p, width = 10, height = 5, dpi = 300)
+
+```
+
+#PCA of species per site  with all size included 
+```{r}
+#Reshaping the data for the PCA
+#Aggregate relative abundance by Site and Species
+data_RA <- relative_abundance.LS %>%
+  group_by(Site, Species) %>%
+  summarise(RelAbundance = sum(Relative_Abundance), .groups = "drop") %>%
+  pivot_wider(names_from = Species, values_from = RelAbundance, values_fill = 0)
+
+# Check
+head(data_RA)
+
+# Extract matrix of species abundances
+abundance_matrix <- data_RA %>% select(-Site)
+
+# Run PCA using vegan
+pca_RA <- rda(abundance_matrix, scale = TRUE)  # scaling is usually recommended
+summary(pca_RA)
+
+# Basic biplot
+biplot(pca_RA, scaling = 2)  # scaling 2: emphasizes distances between sites
+
+# Or using ggplot for a nicer plot
+pca_scores <- scores(pca_RA, display = "sites") %>% as.data.frame()
+pca_scores$Site <- data_RA$Site
+
+species_scores <- scores(pca_RA, display = "species") %>% as.data.frame()
+species_scores$species <- rownames(species_scores)
+########
+
+# Assuming your data is already in wide format
+abundance_matrix <- data_RA %>% select(-Site)
+
+# PCA
+pca <- rda(abundance_matrix, scale = TRUE)
+
+# Site scores
+site_scores <- scores(pca, display = "sites") %>% as.data.frame()
+site_scores$Site <- data_RA$Site
+
+# Species scores
+species_scores <- scores(pca, display = "species") %>% as.data.frame()
+species_scores$Species <- rownames(species_scores)
+
+# Make sure the species color vector is named
+cols.species <- cbind.data.frame(species = factor(c("P. tuahiniensis",
+                                            "P. meandrinaP. grandis",
+                                            "P. verrucosa",
+                                            "P. grandis",
+                                            "P. effusa",
+                                            "P. acuta",
+                                            "P. meandrina")),
+                         Color = c("#D55E00",
+                                   "#0072B2",
+                                   "#E69F00",
+                                   "#56B4E9",
+                                   "#009E73",
+                                   "#e63946",
+                                   "#0072B2"))
+
+# Add color column to species_scores
+species_scores <- species_scores %>%
+  left_join(cols.species, by = c("Species" = "species"))
+
+#Categorize the site by shore defining per a shape into the pca 
+shore_lookup <- data.frame(
+  Site = c("S1", "S2", "S3", "S4", "S5", "S6",
+           "S9", "S11", "S12", "S14", "S15", "S18"),  # adjust to your sites
+  Shore = c("North", "North", "North", "North", "East", "East",
+            "East", "West", "West", "West", "West", "West")
+)
+
+site_scores <- site_scores %>%
+  left_join(shore_lookup, by = "Site")
+
+#adding the shape to a specific site 
+shore_shapes <- c(
+  "North" = 15,   # square
+  "West"  = 16,   # circle
+  "East"  = 17    # triangle
+)
+
+#ploting the pca with the shape 
+PCA_Species_site <- ggplot() +
+
+  # ---- Sites (shapes per shore) ----
+  geom_point(data = site_scores,
+             aes(x = PC1, y = PC2, shape = Shore),
+             size = 4, fill = "black") +
+  
+  scale_shape_manual(values = shore_shapes) +
+
+  # ---- Species arrows ----
+  geom_segment(data = species_scores,
+               aes(x = 0, y = 0,
+                   xend = PC1 * 1.4, yend = PC2 * 1.4,
+                   color = Color),
+               arrow = arrow(length = unit(0.4, "cm"),
+                             type = "closed"),
+               linewidth = 0.8, alpha = 0.6) +
+
+  geom_text(data = species_scores,
+            aes(x = PC1 * 1.1, y = PC2 * 1.1,
+                label = Species, color = Color),
+            size = 3) +
+  
+  scale_color_identity() +
+  theme_minimal() +
+  labs(title = "PCA of Sites by Species (Shapes = Island Shore)",
+       x = "PC1", y = "PC2") +
+  theme(legend.position = "right") +
+  coord_fixed(ratio = 0.8)
+
+#ploting PCA with species and sites all sizes include 
+
+PCA_Species_site <- ggplot() +
+  geom_text_repel(data = site_scores, 
+                  aes(x = PC1, y = PC2, label = Site),
+                  fontface = "bold", size = 3.5, color = "black") +
+  geom_segment(data = species_scores,
+               aes(x = 0, y = 0, xend = PC1 * 1.4, yend = PC2 * 1.4, color = Color),
+               arrow = arrow(length = unit(0.4, "cm"), type = "closed"),  linewidth = 0.8, alpha= 0.6) + 
+  geom_text(data = species_scores, 
+            aes(x = PC1 * 1.1, y = PC2 * 1.1, label = Species, color = Color),
+            size = 3, hjust = 0.5, vjust = 0.5) +
+  scale_color_identity() +
+  theme_minimal() +
+  labs(title = "PCA of sites by species all size class include",
+       x = "PC1", y = "PC2") +
+  theme(legend.position = "none")+ 
+coord_fixed(ratio = 0.8)
+
+PCA_Species_site
+ggsave("Output/PCA_Species_site.png", PCA_Species_site,
+       width = 10, height = 8, dpi = 300)
+```
+
+```{r}
+#ploting the data with the different class size 
+run_pca_plot <- function(relative_abundance.LS, stage_name) 
+  
+#Aggregate relative abundance by Site and Species
+data_stage <- relative_abundance.LS %>%
+    group_by(Site, Species) %>%
+    summarise(RelAbundance = sum(Relative_Abundance), .groups = "drop") %>%
+    pivot_wider(names_from = Species, values_from = RelAbundance, values_fill = 0)
+  
+  # PCA
+  abundance_matrix <- data_stage %>% select(-Site)
+  pca <- rda(abundance_matrix, scale = TRUE)
+  
+  # Scores
+  site_scores <- scores(pca, display = "sites") %>% as.data.frame()
+  site_scores$Site <- data_stage$Site
+  
+  species_scores <- scores(pca, display = "species") %>% as.data.frame()
+  species_scores$Species <- rownames(species_scores)
+  
+  # Join color info
+  species_scores <- species_scores %>%
+    left_join(cols.species, by = c("Species" = "species"))
+  
+  # Plot PCA
+ggplot() +
+    geom_text_repel(data = site_scores, 
+                    aes(x = PC1, y = PC2, label = Site),
+                    fontface = "bold", size = 3.5, color = "black") +
+    geom_segment(data = species_scores,
+                 aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
+                 arrow = arrow(length = unit(0.3, "cm")), alpha = 0.8) +
+    geom_text(data = species_scores, 
+              aes(x = PC1 * 1.1, y = PC2 * 1.1, label = Species, color = Color),
+              size = 3, hjust = 0.5, vjust = 0.5) +
+    scale_color_identity() +
+    theme_minimal() +
+    labs(title = paste("PCA of Sites by Species –", "Life Stage"),
+         x = "PC1", y = "PC2") +
+    theme(legend.position = "none")+ 
+coord_fixed(ratio = 0.8)
+
+
+# --- Run PCA for each LifeStage ---
+pca_plots <- relative_abundance.LS %>%
+  group_split(LifeStage) %>%
+  set_names(unique(relative_abundance.LS$LifeStage)) %>%
+  map(~ run_pca_plot(.x, unique(.x$LifeStage)))
+
+# --- View results ---
+pca_plots$Recruit      # example (replace with your actual level names)
+pca_plots$Juvenile
+pca_plots$Subadult
+pca_plots$Adult
+
+# --- Combine into one panel (optional) ---
+(pca_plots[[1]] | pca_plots[[2]]) /
+(pca_plots[[3]] | pca_plots[[4]])
+
+```
+```{r}
+#filtering the data and separate the class size one by one for after make the plot for each class sizes 
+# Filter your dataset for one LifeStage
+#0-2cm lifestage
+zero_twocm_data <- relative_abundance.LS %>%
+  filter(LifeStage == "0-2cm")
+
+#2>5cm lifestage
+two_fivecm_data <- relative_abundance.LS %>%
+  filter(LifeStage == ">2cm-5cm")
+
+#5>14cm lifestage
+five_fourteencm_data <- relative_abundance.LS %>%
+  filter(LifeStage == ">5cm-14cm")
+
+#>14cm lifestage
+fourteencm_data <- relative_abundance.LS %>%
+  filter(LifeStage == ">14cm")
+
+# #Filter your dataset for one LifeStage
+# #0-1cm lifestage
+# zero_onecm_data <- relative_abundance.LS %>%
+#   filter(LifeStage == "0-1cm")
+# 
+# #1-5cm lifestage
+# one_fivecm_data <- relative_abundance.LS %>%
+#   filter(LifeStage == ">1-5cm")
+# 
+# #5> lifestage
+# five_pluscm_data <- relative_abundance.LS %>%
+#   filter(LifeStage == ">5cm")
+
+#0-2cm lifestage
+# Aggregate relative abundance by Site and Species
+data_RA_zero_two <- zero_twocm_data %>%
+  group_by(Site, Species) %>%
+  summarise(RelAbundance = sum(Relative_Abundance), .groups = "drop") %>%
+  pivot_wider(names_from = Species, values_from = RelAbundance, values_fill = 0)
+
+# Run PCA
+abundance_matrix <- data_RA_zero_two %>% select(-Site)
+pca_zero_two <- rda(abundance_matrix, scale = TRUE)
+
+# Extract PCA scores
+site_scores <- scores(pca_zero_two, display = "sites") %>% as.data.frame()
+site_scores$Site <- data_RA_zero_two$Site
+
+species_scores <- scores(pca_zero_two, display = "species") %>% as.data.frame()
+species_scores$Species <- rownames(species_scores)
+
+# Add species colors
+species_scores <- species_scores %>%
+  left_join(cols.species, by = c("Species" = "species"))
+
+#pca_zero_two <- ggplot() +
+#  geom_text_repel(data = site_scores, 
+#                  aes(x = PC1, y = PC2, label = Site),
+#                  fontface = "bold", size = 3.5, color = "black") +
+#  geom_segment(data = species_scores,
+#               aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
+#               arrow = arrow(length = unit(0.3, "cm")), alpha = 0.8) +
+#  geom_text(data = species_scores, 
+#            aes(x = PC1 * 1.1, y = PC2 * 1.1, label = Species, color = Color),
+#            size = 3, hjust = 0.5, vjust = 0.5) +
+#  scale_color_identity() +
+#  theme_minimal() +
+#  labs(title = "PCA of sites by species 0-2cm life stage",
+#       x = "PC1", y = "PC2") +
+#  theme(legend.position = "none")+ 
+#coord_fixed(ratio = 0.8)
+
+# pca_zero_two <- ggplot() +
+#   
+#   ## Site labels
+#   geom_text_repel(
+#     data = site_scores,
+#     aes(x = PC1, y = PC2, label = Site),
+#     fontface = "bold",
+#     size = 4,
+#     color = "black",
+#     max.overlaps = 20,
+#     box.padding = 0.4,
+#     point.padding = 0.3,
+#     segment.color = "grey60"
+#   ) +
+#   
+#   ## Species arrows
+#   geom_segment(
+#     data = species_scores,
+#     aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
+#     arrow = arrow(length = unit(0.25, "cm"), type = "closed"),
+#     linewidth = 0.9,
+#     alpha = 0.85
+#   ) +
+#   
+#   ## Species labels
+#   geom_text(
+#     data = species_scores,
+#     aes(x = PC1 * 1.12, y = PC2 * 1.12, label = Species, color = Color),
+#     size = 3.5,
+#     fontface = "italic",
+#     hjust = 0.5,
+#     vjust = 0.5
+#   ) +
+#   
+#   ## Keep your own color identity
+#   scale_color_identity() +
+#   
+#   ## Improved minimal theme
+#   theme_minimal(base_size = 13) +
+#   theme(
+#     panel.grid.major = element_line(color = "grey85", size = 0.3),
+#     panel.grid.minor = element_blank(),
+#     plot.title = element_text(face = "bold", size = 14, hjust = 0.5),
+#     axis.title = element_text(face = "bold", size = 13),
+#     legend.position = "none"
+#   ) +
+#   
+#   labs(
+#     title = "PCA of Sites by Species (0–2 cm Life Stage)",
+#     x = "PC1",
+#     y = "PC2"
+#   ) +
+#   
+#   ## Fix aspect ratio
+#   coord_fixed(ratio = 1)
+# 
+# pca_zero_two
+# ggsave("Output/pca_zero_two.png", pca_zero_two,
+#        width = 10, height = 8, dpi = 300)
+
+pca_zero_one <- ggplot() +
+  
+  ## Site labels
+  geom_text_repel(
+    data = site_scores,
+    aes(x = PC1, y = PC2, label = Site),
+    fontface = "bold",
+    size = 4,
+    color = "black",
+    max.overlaps = 20,
+    box.padding = 0.4,
+    point.padding = 0.3,
+    segment.color = "grey60"
+  ) +
+  
+  ## Species arrows
+  geom_segment(
+    data = species_scores,
+    aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
+    arrow = arrow(length = unit(0.25, "cm"), type = "closed"),
+    linewidth = 0.9,
+    alpha = 0.85
+  ) +
+  
+  ## Species labels
+  geom_text(
+    data = species_scores,
+    aes(x = PC1 * 1.12, y = PC2 * 1.12, label = Species, color = Color),
+    size = 3.5,
+    fontface = "italic",
+    hjust = 0.5,
+    vjust = 0.5
+  ) +
+  
+  ## Keep your own color identity
+  scale_color_identity() +
+  
+  ## Improved minimal theme
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.grid.major = element_line(color = "grey85", size = 0.3),
+    panel.grid.minor = element_blank(),
+    plot.title = element_text(face = "bold", size = 14, hjust = 0.5),
+    axis.title = element_text(face = "bold", size = 13),
+    legend.position = "none"
+  ) +
+  
+  labs(
+    title = "PCA of Sites by Species (0–1 cm Life Stage)",
+    x = "PC1",
+    y = "PC2"
+  ) +
+  
+  ## Fix aspect ratio
+  coord_fixed(ratio = 1)
+
+pca_zero_one
+ggsave("Output/pca_zero_one.png", pca_zero_one,
+       width = 10, height = 8, dpi = 300)
+
+
+pca_one_five <- ggplot() +
+  
+  ## Site labels
+  geom_text_repel(
+    data = site_scores,
+    aes(x = PC1, y = PC2, label = Site),
+    fontface = "bold",
+    size = 4,
+    color = "black",
+    max.overlaps = 20,
+    box.padding = 0.4,
+    point.padding = 0.3,
+    segment.color = "grey60"
+  ) +
+  
+  ## Species arrows
+  geom_segment(
+    data = species_scores,
+    aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
+    arrow = arrow(length = unit(0.25, "cm"), type = "closed"),
+    linewidth = 0.9,
+    alpha = 0.85
+  ) +
+  
+  ## Species labels
+  geom_text(
+    data = species_scores,
+    aes(x = PC1 * 1.12, y = PC2 * 1.12, label = Species, color = Color),
+    size = 3.5,
+    fontface = "italic",
+    hjust = 0.5,
+    vjust = 0.5
+  ) +
+  
+  ## Keep your own color identity
+  scale_color_identity() +
+  
+  ## Improved minimal theme
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.grid.major = element_line(color = "grey85", size = 0.3),
+    panel.grid.minor = element_blank(),
+    plot.title = element_text(face = "bold", size = 14, hjust = 0.5),
+    axis.title = element_text(face = "bold", size = 13),
+    legend.position = "none"
+  ) +
+  
+  labs(
+    title = "PCA of Sites by Species (1-5 cm Life Stage)",
+    x = "PC1",
+    y = "PC2"
+  ) +
+  
+  ## Fix aspect ratio
+  coord_fixed(ratio = 1)
+
+pca_one_five
+ggsave("Output/pca_one_five.png", pca_one_five,
+       width = 10, height = 8, dpi = 300)
+
+pca_five_plus <- ggplot() +
+  
+  ## Site labels
+  geom_text_repel(
+    data = site_scores,
+    aes(x = PC1, y = PC2, label = Site),
+    fontface = "bold",
+    size = 4,
+    color = "black",
+    max.overlaps = 20,
+    box.padding = 0.4,
+    point.padding = 0.3,
+    segment.color = "grey60"
+  ) +
+  
+  ## Species arrows
+  geom_segment(
+    data = species_scores,
+    aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
+    arrow = arrow(length = unit(0.25, "cm"), type = "closed"),
+    linewidth = 0.9,
+    alpha = 0.85
+  ) +
+  
+  ## Species labels
+  geom_text(
+    data = species_scores,
+    aes(x = PC1 * 1.12, y = PC2 * 1.12, label = Species, color = Color),
+    size = 3.5,
+    fontface = "italic",
+    hjust = 0.5,
+    vjust = 0.5
+  ) +
+  
+  ## Keep your own color identity
+  scale_color_identity() +
+  
+  ## Improved minimal theme
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.grid.major = element_line(color = "grey85", size = 0.3),
+    panel.grid.minor = element_blank(),
+    plot.title = element_text(face = "bold", size = 14, hjust = 0.5),
+    axis.title = element_text(face = "bold", size = 13),
+    legend.position = "none"
+  ) +
+  
+  labs(
+    title = "PCA of Sites by Species (>5 cm Life Stage)",
+    x = "PC1",
+    y = "PC2"
+  ) +
+  
+  ## Fix aspect ratio
+  coord_fixed(ratio = 1)
+
+pca_five_plus
+ggsave("Output/pca_five_plus.png", pca_five_plus,
+       width = 10, height = 8, dpi = 300)
+
+#2>5cm lifestage
+# Aggregate relative abundance by Site and Species
+data_RA_two_fivecm <- two_fivecm_data %>%
+  group_by(Site, Species) %>%
+  summarise(RelAbundance = sum(Relative_Abundance), .groups = "drop") %>%
+  pivot_wider(names_from = Species, values_from = RelAbundance, values_fill = 0)
+
+# Run PCA
+abundance_matrix <- data_RA_two_fivecm %>% select(-Site)
+pca_two_fivecm <- rda(abundance_matrix, scale = TRUE)
+
+# Extract PCA scores
+site_scores <- scores(pca_two_fivecm, display = "sites") %>% as.data.frame()
+site_scores$Site <- data_RA_two_fivecm$Site
+
+species_scores <- scores(pca_two_fivecm, display = "species") %>% as.data.frame()
+species_scores$Species <- rownames(species_scores)
+
+# Add species colors
+species_scores <- species_scores %>%
+  left_join(cols.species, by = c("Species" = "species"))
+
+#pca_two_fivecm <- ggplot() +
+#  geom_text_repel(data = site_scores, 
+#                  aes(x = PC1, y = PC2, label = Site),
+#                  fontface = "bold", size = 3.5, color = "black") +
+#  geom_segment(data = species_scores,
+#               aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
+#               arrow = arrow(length = unit(0.3, "cm")), alpha = 0.8) +
+#  geom_text(data = species_scores, 
+#            aes(x = PC1 * 1.1, y = PC2 * 1.1, label = Species, color = Color),
+#            size = 3, hjust = 0.5, vjust = 0.5) +
+#  scale_color_identity() +
+#  theme_minimal() +
+#  labs(title = "PCA of sites by species >2-5cm life stage",
+#       x = "PC1", y = "PC2") +
+#  theme(legend.position = "none")+ 
+#coord_fixed(ratio = 0.8)
+
+pca_two_fivecm <- ggplot() +
+  # Site labels
+  geom_text_repel(
+    data = site_scores,
+    aes(x = PC1, y = PC2, label = Site),
+    fontface = "bold",
+    size = 4,
+    color = "black",
+    max.overlaps = Inf,
+    box.padding = 0.4
+  ) +
+  
+  # Species vectors
+  geom_segment(
+    data = species_scores,
+    aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
+    arrow = arrow(length = unit(0.25, "cm"), type = "closed"),
+    linewidth = 0.7,
+    alpha = 0.9
+  ) +
+
+  # Species labels
+  geom_text(
+    data = species_scores,
+    aes(x = PC1 * 1.12, y = PC2 * 1.12, label = Species, color = Color),
+    size = 3.2,
+    fontface = "bold",
+    vjust = 0.5,
+    hjust = 0.5
+  ) +
+  
+  scale_color_identity() +
+  
+  # Clean theme
+  theme_minimal(base_size = 14) +
+  labs(
+    title = "PCA of sites by species (>2–5 cm life stage)",
+    x = "PC1",
+    y = "PC2"
+  ) +
+  theme(
+    panel.grid = element_line(color = "grey85", linewidth = 0.3),
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    legend.position = "none"
+  ) +
+  
+  coord_fixed(ratio = 1)
+pca_two_fivecm
+ggsave("Output/pca_two_fivecm.png", pca_two_fivecm,
+       width = 10, height = 8, dpi = 300)
+#5-14cmcm lifestage
+# Aggregate relative abundance by Site and Species
+data_RA_five_fourteencm <- two_fivecm_data %>%
+  group_by(Site, Species) %>%
+  summarise(RelAbundance = sum(Relative_Abundance), .groups = "drop") %>%
+  pivot_wider(names_from = Species, values_from = RelAbundance, values_fill = 0)
+
+# Run PCA
+abundance_matrix <- data_RA_five_fourteencm %>% select(-Site)
+pca_five_fourteencm <- rda(abundance_matrix, scale = TRUE)
+
+# Extract PCA scores
+site_scores <- scores(pca_five_fourteencm, display = "sites") %>% as.data.frame()
+site_scores$Site <- data_RA_five_fourteencm$Site
+
+species_scores <- scores(pca_five_fourteencm, display = "species") %>% as.data.frame()
+species_scores$Species <- rownames(species_scores)
+
+# Add species colors
+species_scores <- species_scores %>%
+  left_join(cols.species, by = c("Species" = "species"))
+
+#pca_five_fourteencm <- ggplot() +
+#  geom_text_repel(data = site_scores, 
+#                  aes(x = PC1, y = PC2, label = Site),
+#                  fontface = "bold", size = 3.5, color = "black") +
+#  geom_segment(data = species_scores,
+#               aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
+#               arrow = arrow(length = unit(0.3, "cm")), alpha = 0.8) +
+#  geom_text(data = species_scores, 
+#            aes(x = PC1 * 1.1, y = PC2 * 1.1, label = Species, color = Color),
+#            size = 3, hjust = 0.5, vjust = 0.5) +
+#  scale_color_identity() +
+#  theme_minimal() +
+#  labs(title = "PCA of sites by species 5-14cm life stage",
+#       x = "PC1", y = "PC2") +
+#  theme(legend.position = "none")+ 
+#coord_fixed(ratio = 0.8)
+
+pca_five_fourteencm <- ggplot() +
+  # Site labels
+  geom_text_repel(
+    data = site_scores,
+    aes(x = PC1, y = PC2, label = Site),
+    fontface = "bold",
+    size = 4,
+    color = "black",
+    max.overlaps = Inf,
+    box.padding = 0.4
+  ) +
+  
+  # Species vectors
+  geom_segment(
+    data = species_scores,
+    aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
+    arrow = arrow(length = unit(0.25, "cm"), type = "closed"),
+    linewidth = 0.7,
+    alpha = 0.9
+  ) +
+  
+  # Species labels
+  geom_text(
+    data = species_scores,
+    aes(x = PC1 * 1.12, y = PC2 * 1.12, label = Species, color = Color),
+    size = 3.2,
+    fontface = "bold",
+    vjust = 0.5,
+    hjust = 0.5
+  ) +
+  
+  scale_color_identity() +
+  
+  # Clean theme
+  theme_minimal(base_size = 14) +
+  labs(
+    title = "PCA of sites by species (5–14 cm life stage)",
+    x = "PC1",
+    y = "PC2"
+  ) +
+  theme(
+    panel.grid = element_line(color = "grey85", linewidth = 0.3),
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    legend.position = "none"
+  ) +
+  
+  coord_fixed(ratio = 1)
+pca_five_fourteencm
+ggsave("Output/pca_five_fourteencm.png", pca_five_fourteencm,
+       width = 10, height = 8, dpi = 300)
+#>14cm lifestage
+# Aggregate relative abundance by Site and Species
+data_RA_fourteencm <- two_fivecm_data %>%
+  group_by(Site, Species) %>%
+  summarise(RelAbundance = sum(Relative_Abundance), .groups = "drop") %>%
+  pivot_wider(names_from = Species, values_from = RelAbundance, values_fill = 0)
+
+# Run PCA
+abundance_matrix <- data_RA_fourteencm %>% select(-Site)
+pca_fourteencm <- rda(abundance_matrix, scale = TRUE)
+
+# Extract PCA scores
+site_scores <- scores(pca_fourteencm, display = "sites") %>% as.data.frame()
+site_scores$Site <- data_RA_fourteencm$Site
+
+species_scores <- scores(pca_fourteencm, display = "species") %>% as.data.frame()
+species_scores$Species <- rownames(species_scores)
+
+# Add species colors
+species_scores <- species_scores %>%
+  left_join(cols.species, by = c("Species" = "species"))
+
+#pca_fourteencm <- ggplot() +
+#  geom_text_repel(data = site_scores, 
+#                  aes(x = PC1, y = PC2, label = Site),
+#                  fontface = "bold", size = 3.5, color = "black") +
+#  geom_segment(data = species_scores,
+#               aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
+#               arrow = arrow(length = unit(0.3, "cm")), alpha = 0.8) +
+#  geom_text(data = species_scores, 
+#            aes(x = PC1 * 1.1, y = PC2 * 1.1, label = Species, color = Color),
+#            size = 3, hjust = 0.5, vjust = 0.5) +
+#  scale_color_identity() +
+#  theme_minimal() +
+#  labs(title = "PCA of sites by species >14cm life stage",
+#       x = "PC1", y = "PC2") +
+#  theme(legend.position = "none") + 
+#coord_fixed(ratio = 0.8)  # slightly taller than wide
+
+pca_fourteencm <- ggplot() +
+  # Site labels
+  geom_text_repel(
+    data = site_scores,
+    aes(x = PC1, y = PC2, label = Site),
+    fontface = "bold",
+    size = 4,
+    color = "black",
+    max.overlaps = Inf,
+    box.padding = 0.4
+  ) +
+  
+  # Species vectors
+  geom_segment(
+    data = species_scores,
+    aes(x = 0, y = 0, xend = PC1, yend = PC2, color = Color),
+    arrow = arrow(length = unit(0.50, "cm"), type = "closed"),
+    linewidth = 0.7,
+    alpha = 0.9
+  ) +
+  
+  # Species labels
+  geom_text(
+    data = species_scores,
+    aes(x = PC1 * 1.12, y = PC2 * 1.12, label = Species, color = Color),
+    size = 3.2,
+    fontface = "bold",
+    vjust = 0.5,
+    hjust = 0.5
+  ) +
+  
+  scale_color_identity() +
+  
+  # Clean theme
+  theme_minimal(base_size = 14) +
+  labs(
+    title = "PCA of sites by species (>14 cm life stage)",
+    x = "PC1",
+    y = "PC2"
+  ) +
+  theme(
+    panel.grid = element_line(color = "grey85", linewidth = 0.3),
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    legend.position = "none"
+  ) +
+  
+  coord_fixed(ratio = 1)
+
+pca_fourteencm
+ggsave("Output/pca_fourteencm.png", pca_fourteencm,
+       width = 10, height = 8, dpi = 300)
+#combining all the PCA in one figure 
+#list of the plot want to be combine together 
+PCA_Species_site
+pca_zero_two
+pca_two_fivecm
+pca_five_fourteencm
+pca_fourteencm
+
+pca_zero_two <- pca_zero_two + theme(legend.position = "bottom",           
+    legend.title.align = 0.5,             
+    legend.box = "horizontal") 
+
+pca_two_fivecm <- pca_two_fivecm + theme(legend.position = "bottom",           
+    legend.title.align = 0.5,             
+    legend.box = "horizontal") 
+
+pca_five_fourteencm <- pca_five_fourteencm + theme(legend.position = "bottom",           
+    legend.title.align = 0.5,             
+    legend.box = "horizontal") 
+
+pca_fourteencm <- pca_fourteencm + theme(legend.position = "bottom",           
+    legend.title.align = 0.5,             
+    legend.box = "horizontal") 
+
+PCA_Species_site <- PCA_Species_site + theme(legend.position = "bottom",           
+    legend.title.align = 0.5,             
+    legend.box = "horizontal") 
+
+# Combine plots
+pca_RA_combine <- (pca_zero_two | pca_two_fivecm) / (pca_five_fourteencm | pca_fourteencm) / (PCA_Species_site)+
+  plot_annotation(tag_levels = 'A')
+
+ggsave("Output/PCA_combined.png",pca_RA_combine,width = 14, height = 18, dpi = 300)
+```
+looking at the density of pocillopora per sites, per species and per size classes 
+```{r}
+
+transect_area <- 25   # m² (50m × 0.5m)
+poc_species <- c("P. tuahiniensis", "P. verrucosa", "P. grandis", "P. effusa", "P. acuta", "P. meandrina") 
+
+
+density_species_poc <- data %>%
+  filter(Species %in% poc_species) %>%
+  group_by(Site, Transect, Species) %>%
+  summarise(
+    colonies = n(),
+    density = colonies / transect_area,
+    .groups = "drop"
+  ) %>%
+  group_by(Site, Species) %>%
+  summarise(
+    mean_density = mean(density),
+    sd_density = sd(density),
+    .groups = "drop"
+  )
+#define the color who will be used for the species in the graph 
+species_colors <- c(
+  "P. tuahiniensis" = "#D55E00",
+  "P. verrucosa"    = "#E69F00",
+  "P. grandis"      = "#56B4E9",
+  "P. effusa"       = "#009E73",
+  "P. acuta"        = "#e63946",
+  "P. meandrina"    = "#0072B2"
+)
+
+#ploting in general all the colonies without paying attention to the size class
+Density_general <- ggplot(density_species_poc, aes(x = Site, y = mean_density, fill = Species)) +
+  geom_col(position = "dodge") +
+   scale_fill_manual(values = species_colors) +
+  theme_bw() +
+  labs(y = "Density (colonies / m²)",
+       title = "Pocillopora Density per Species per Site")
+
+Density_general
+ggsave("Output/Density_general.png", Density_general,
+       width = 10, height = 8, dpi = 300)
+
+#ploting in function of the size class 
+density_sizeclass_species <- data %>%
+  filter(Species %in% poc_species) %>%
+  group_by(Site, Transect, Species, LifeStage) %>%
+  summarise(
+    colonies = n(),
+    density = colonies / transect_area,
+    .groups = "drop"
+  ) %>%
+  group_by(Site, Species, LifeStage) %>%
+  summarise(
+    mean_density = mean(density),
+    sd_density   = sd(density),
+    .groups = "drop"
+  )
+
+
+# Plot with species colors, size classes stacked inside each species
+ggplot(density_sizeclass_species, 
+       aes(x = Site, y = mean_density, fill = Species)) +
+  geom_col(position = position_stack(reverse = TRUE)) +  # stack size classes inside species-colored bars
+  facet_wrap(~ LifeStage) +  # each facet shows one size class
+  scale_fill_manual(values = species_colors) +
+  theme_bw() +
+  labs(
+    y = "Density (colonies / m²)",
+    fill = "Species",
+    title = "Pocillopora Density per Species × Size Class × Site"
+  )
+
+# plot one graph for each dentisty of poicllopora depending on their size class 
+plot_sizeclass <- function(size_class_name){
+  
+  Density_per_size_class <- density_sizeclass_species %>%
+    filter(LifeStage == size_class_name)
+  
+  ggplot(Density_per_size_class, aes(x = Site, y = mean_density, fill = Species)) +
+    geom_col(position = "dodge") +
+    scale_fill_manual(values = species_colors) +
+    theme_bw() +
+    labs(
+      y = "Density (colonies / m²)",
+      fill = "Species",
+      title = paste("Pocillopora Density per Species — Size Class:", size_class_name)
+    )
+}
+
+plot_sizeclass("0-2cm")
+plot_sizeclass(">2cm-5cm")
+plot_sizeclass(">5cm-14cm")
+plot_sizeclass(">14cm")
+
+#grouping all the graph in one graph to better vizualization
+Density_per_size_class <- ggplot(density_sizeclass_species, 
+       aes(x = Site, y = mean_density, fill = Species)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = species_colors) +
+  facet_wrap(~ LifeStage, ncol = 2) +  # each size class gets its own panel
+  theme_bw() +
+  labs(
+    y = "Density (colonies / m²)",
+    fill = "Species",
+    title = "Pocillopora Density per Species × Size Class × Site"
+  )
+
+ggsave("Output/Density_per_size_class.png", Density_per_size_class,
+       width = 10, height = 8, dpi = 300)
+
+```
+statistic analysis on the density and relative abundance of pocillopora at the site level 
+```{r}
+#loading data and preparing th edata set by selectionning the categories I want 
+density <- read.csv("Data/density.csv")%>%
+  select("Site","Species","LifeStage","mean_density", "sd_density")
+
+str(density)
+
+# Specify the order you want
+size_levels <- c("0-2cm", ">2cm-5cm", ">5cm-14cm", ">14cm")
+
+density$LifeStage <- factor(density$LifeStage, levels = size_levels)
+
+#specify the color panel that I would like to have to be similar to the other graph 
+# Convert your color mapping to a named vector
+species_colors <- setNames(as.character(cols.species$Color), as.character(cols.species$Species))
+
+#place the site in a good order from the smallest to the biggest number in the serie 
+density$Site_num <- as.numeric(gsub("\\D", "", density$Site))
+
+density$Site <- factor(
+  density$Site,
+  levels = unique(density$Site[order(density$Site_num)])
+)
+
+# Then map fill to Species
+ggplot(density, aes(x = Site, y = mean_density, fill = Species)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = species_colors) +  
+  facet_grid(Species ~ LifeStage, scales = "free_y") +
+  labs(x = "Site",
+       y = "Mean density",
+       title = "Density by Site, Species, and Life Stage") +
+  theme_bw(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.background = element_rect(fill = "grey90")
+  )
+
+#ploting the density with a different graph shape
+#loading data
+#add Average Diameter.cm to data_density from de df data
+data <- read.csv("Data/data.csv")
+density <- read.csv("Data/density.csv")
+
+#merging both dataset to a new call data_density 
+
+data_density <- data_density %>%
+  mutate(Size = pmin(Average.Diameter.cm, 14))
+
+#making the plot 
+ggplot(data_density, aes(x = Size,
+               y = Species,
+               fill = Species)) +
+  geom_density_ridges(alpha = 0.7,
+                      scale = 1.5,
+                      color = "white") +
+  facet_wrap(~ Site) +
+  labs(x = "Average diameter (cm)",
+       y = "Species",
+       fill = "Species",
+       title = "Size distributions of colonies by species at each site") +
+  theme_bw(base_size = 14) +
+  theme(
+    legend.position = "none",
+    strip.background = element_rect(fill = "grey90")
+  )
+
+#now we need to change the color to be the same as the rest of the studie and make sure everything start at 0 and not -5 and in a second time finishing at 14cm 
+#fix the color
+cols.species <- c("P. tuahiniensis" = "#D55E00",
+                  #"P. meandrinaP. grandis" = "#0072B2",
+                  "P. verrucosa" = "#E69F00",
+                  "P. grandis" = "#56B4E9",
+                  "P. effusa" = "#009E73",
+                  "P. acuta" = "#e63946",
+                  "P. meandrina" = "#0072B2")
+
+#fix the order of the site for the plot 
+data_density$Site_num <- as.numeric(gsub("\\D", "", data_density$Site))
+
+data_density$Site <- factor(
+  data_density$Site,
+  levels = unique(data_density$Site[order(data_density$Site_num)])
+)
+
+#making the plot 
+ggplot(data_density, aes(
+  x = Size,
+  y = Species,
+  fill = Species
+)) +
+  geom_density_ridges(alpha = 0.7,
+                      scale = 1.5,
+                      color = "white") +
+  facet_wrap(~ Site) +
+  scale_fill_manual(values = cols.species) +        
+  scale_x_continuous(limits = c(0, 14)) +           
+  labs(x = "Average diameter (cm)",
+       y = "Species",
+       fill = "Species",
+       title = "Size distributions of colonies by species at each site") +
+  theme_bw(base_size = 14) +
+  theme(
+    legend.position = "none",
+    strip.background = element_rect(fill = "grey90")
+  )
+
+
+
+```
+
+```{r}
+#New try because the code befoer doesn't work 
+# --- Load data ---
+density <- read.csv("Data/density.csv") %>%
+  select(Site, Species, LifeStage, mean_density, sd_density)
+
+data <- read.csv("Data/data.csv") # contains Average.Diameter.cm
+
+# --- Set LifeStage order ---
+size_levels <- c("0-2cm", ">2cm-5cm", ">5cm-14cm", ">14cm")
+density$LifeStage <- factor(density$LifeStage, levels = size_levels)
+
+# --- Order sites numerically ---
+density$Site_num <- as.numeric(gsub("\\D", "", density$Site))
+density$Site <- factor(density$Site,
+                       levels = unique(density$Site[order(density$Site_num)]))
+
+# --- Color palette ---
+cols.species <- c(
+  "P. tuahiniensis" = "#D55E00",
+  "P. meandrina"    = "#0072B2",
+  "P. verrucosa"    = "#E69F00",
+  "P. grandis"      = "#56B4E9",
+  "P. effusa"       = "#009E73",
+  "P. acuta"        = "#e63946"
+)
+
+# --- Bar plot of mean density ---
+Density_per_size_class_and_species <- ggplot(density, aes(x = Site, y = mean_density, fill = Species)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = cols.species) +
+  facet_grid(Species ~ LifeStage, scales = "free_y") +
+  labs(x = "Site", y = "Mean density",
+       title = "Density by Site, Species, and Life Stage") +
+  theme_bw(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        strip.background = element_rect(fill = "grey90"))
+
+ggsave("Output/Density_per_size_class_and_species.png", Density_per_size_class_and_species,
+       width = 10, height = 8, dpi = 300)
+
+# --- Merge Average.Diameter.cm into density to create data_density ---
+data_density <- density %>%
+  left_join(data %>% select(Site, Species, Average.Diameter.cm),
+            by = c("Site", "Species")) %>%
+  mutate(Size = pmin(Average.Diameter.cm, 14))  # now Size exists
+
+# --- Order sites for plotting ---
+data_density$Site_num <- as.numeric(gsub("\\D", "", data_density$Site))
+data_density$Site <- factor(data_density$Site,
+                            levels = unique(data_density$Site[order(data_density$Site_num)]))
+
+# --- Ridge plot ---
+Density_per_size_class_ridgesplot <- ggplot(data_density, aes(x = Size, y = Species, fill = Species)) +
+  geom_density_ridges(alpha = 0.7, scale = 1.5, color = "white") +
+  facet_wrap(~ Site) +
+  scale_fill_manual(values = cols.species) +
+  scale_x_continuous(limits = c(0, 14)) +
+  labs(x = "Average diameter (cm)",
+       y = "Species",
+       fill = "Species",
+       title = "Size distributions of colonies by species at each site") +
+  theme_bw(base_size = 14) +
+  theme(legend.position = "none",
+        strip.background = element_rect(fill = "grey90"))
+
+ggsave("Output/Density_per_size_class_ridgesplot.png", Density_per_size_class_ridgesplot,
+       width = 10, height = 8, dpi = 300)
+
+```
+
+
+
+```{r}
+#question that we want to answer 
+#Q1. Does colony density differ between sites?
+#Q2. Does density differ between species?
+#Q3. Is there a Site × Species interaction?
+
+#fit the model and built it 
+model_density <- lm(mean_density ~ Site * Species, data = density)
+
+#looking with ANOVA
+anova(model_density)
+
+#the result of the anova show us 3 points:
+# - Site do not have any effect on the population fund 
+# - Species show a significant value showing a differencence between species 
+# - We don't find any interaction between Site and Species 
+
+#let's take a look at the assumption 
+shapiro.test(residuals(model_density))
+
+#data:  residuals(model_density)
+#W = 0.70164, p-value < 2.2e-16
+
+#homogeinis of variance 
+leveneTest(mean_density ~ Site * Species, data = density)
+
+#it does not follow the 
+
+
+
+
+
+
+
+
+# with this result let's go deeper and ask the question: Within each species, does site affect colony size?
+#making model 
+model_full <- lm(Size ~ Species * Site, data = data_density)
+
+#rening anov 
+anova(model_full)
+
+#Species differ significantly in colony size
+#Sites differ significantly in colony size
+#There is a significant Species × Site interaction
+
+
+emmeans(model_full, pairwise ~ Site | Species)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
