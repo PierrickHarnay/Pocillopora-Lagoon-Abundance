@@ -174,14 +174,6 @@ cover_quadrat %>%
 ```{r}
 ------------
   
-data_clean2 %>%
-  count(Name) %>%
-  summarise(
-    min_points = min(n),
-    max_points = max(n),
-    mean_points = mean(n)
-  )
-
 #checking for missing categorie 
 table(data_clean2$Label.code, useNA = "ifany")
 
@@ -379,7 +371,7 @@ site_cover_plot <- ggplot(cover_site,
   geom_bar(stat = "identity") +
   ylab("Relative Abundance (%)") +
   xlab("Site") +
-  scale_fill_excel("Red-Orange") +   # 👈 this is the key line
+  scale_fill_excel("Red-Orange") +   
   theme_classic() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
