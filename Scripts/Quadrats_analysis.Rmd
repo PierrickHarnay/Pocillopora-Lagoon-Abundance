@@ -75,9 +75,76 @@ quadrat_per_site <- data_clean2 %>%
 ```{r}
 #average across sites 
 mean_quadrats <- mean(quadrat_per_site$n_quadrats)
+min_quadrats <- min(quadrat_per_site$n_quadrats)
+max_quadrats <- max(quadrat_per_site$n_quadrats)
 
 mean_quadrats
+min_quadrats
+max_quadrats
 ```
+
+```{r}
+#Remove the over replication into the dataset
+#find where the replicate is 
+duplicated(data_clean2$Name)
+
+#see what quadrats is duplicate 
+data_clean2$Name[duplicated(data_clean2$Name)]
+
+#count how many time each quadrats appear 
+table(data_clean2$Name)
+
+#show only the quadrats who appear more than once 
+table(data_clean2$Name)[table(data_clean2$Name) > 1]
+
+df_problem <- data_clean2[data_clean2$Name == "Problem_Quadrat_Name", ]
+nrow(unique(df_problem))
+
+#list the how many quadrats and witch one are into eac site 
+data_clean2 %>%
+  distinct(Site, Name) %>%
+  arrange(Site, Name)
+
+#remove the quadrats I don't want into the dataset
+#create vector 
+#problem_quadrats <- c("Q06_S11_T3_2",OK
+ #                     "Q30_S11_T3_2",ok
+  #                    "Q22_S12_T1_2",ok
+   #                   "Q26_S14_T2_3",ok
+    #                  "Q18_S18_T3_2",nope
+     #                 "Q10_S18_T2_2",ok
+      #                "Q16_S18_T2_2",ok
+       #               "Q22_S18_T1_2",ok
+        #              "Q18_S2_T2_2",ok
+         #             "Q00_S6_T3_2",ok
+          #            "Q14_S9_T1_2",ok
+           #           "Q16_S9_T2_2",ok
+            #          "Q50_S9_T2_2")ok
+
+#remove them from the dataset
+#data_clean3 <- data_clean2[!(data_clean2$Name %in% problem_quadrats), ]
+
+#check if it worked 
+#data_clean3 %>%
+#  filter(Name %in% problem_quadrats)
+
+#sanity check for the 100 points 
+#data_clean3 %>%
+#  group_by(Name) %>%
+#  summarise(n_points = n(), .groups = "drop") %>%
+#  filter(n_points != 100)
+
+#Count hoName#Count how many rows per quadrat (to detect the 200 ones)
+#data_clean2 %>%
+#  group_by(Site, Name) %>%
+#  summarise(n_points = n(), .groups = "drop") %>%
+#  arrange(Site, Name)
+
+
+```
+
+
+
 ```{r}
 #calculating the percent cover 
 cover_quadrat <- data_clean2 %>%
@@ -101,6 +168,8 @@ cover_quadrat %>%
   summary()
 
 ```
+
+
 ```{r}
 ------------
   
