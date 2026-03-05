@@ -86,24 +86,24 @@ max_quadrats
 ```{r}
 #Remove the over replication into the dataset
 #find where the replicate is 
-duplicated(data_clean2$Name)
+#duplicated(data_clean2$Name)
 
 #see what quadrats is duplicate 
-data_clean2$Name[duplicated(data_clean2$Name)]
+#data_clean2$Name[duplicated(data_clean2$Name)]
 
 #count how many time each quadrats appear 
-table(data_clean2$Name)
+#table(data_clean2$Name)
 
 #show only the quadrats who appear more than once 
-table(data_clean2$Name)[table(data_clean2$Name) > 1]
+#table(data_clean2$Name)[table(data_clean2$Name) > 1]
 
-df_problem <- data_clean2[data_clean2$Name == "Problem_Quadrat_Name", ]
-nrow(unique(df_problem))
+#df_problem <- data_clean2[data_clean2$Name == "Problem_Quadrat_Name", ]
+#nrow(unique(df_problem))
 
 #list the how many quadrats and witch one are into eac site 
-data_clean2 %>%
-  distinct(Site, Name) %>%
-  arrange(Site, Name)
+#data_clean2 %>%
+#  distinct(Site, Name) %>%
+#  arrange(Site, Name)
 
 #remove the quadrats I don't want into the dataset
 #create vector 
@@ -119,7 +119,8 @@ data_clean2 %>%
          #             "Q00_S6_T3_2",ok
           #            "Q14_S9_T1_2",ok
            #           "Q16_S9_T2_2",ok
-            #          "Q50_S9_T2_2")ok
+            #          "Q50_S9_T2_2",
+                        #"Q06_S18_T3_2")ok
 
 #remove them from the dataset
 #data_clean3 <- data_clean2[!(data_clean2$Name %in% problem_quadrats), ]
