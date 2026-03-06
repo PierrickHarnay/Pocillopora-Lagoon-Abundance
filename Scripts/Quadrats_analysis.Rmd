@@ -13,6 +13,7 @@ library(scales)
 library(colorspace)
 library(ggplot2)
 library(ggthemes)
+library(vegan)
 ```
 
 ```{r}
@@ -81,6 +82,38 @@ max_quadrats <- max(quadrat_per_site$n_quadrats)
 mean_quadrats
 min_quadrats
 max_quadrats
+```
+```{r}
+#check the sanity of data
+# Check for NA values
+na_counts <- colSums(is.na(data_clean2))
+na_counts
+
+# Bar plot of quadrats per site
+ggplot(quadrat_per_site, aes(x = Site, y = n_quadrats)) +
+  geom_bar(stat = "identity", fill = "lightblue") +
+  theme_minimal() +
+  labs(title = "Number of Quadrats per Site", x = "Site", y = "Number of Quadrats")
+
+# Boxplot of quadrats per transect
+quadrat_count2 %>%
+  ggplot(aes(x = Transect, y = n_quadrats)) +
+  geom_boxplot(fill = "lightgreen") +
+  theme_minimal() +
+  labs(title = "Quadrats Count Distribution by Transect", x = "Transect", y = "Number of Quadrats")
+
+# Check structure of cleaned data
+str(data_clean2)
+
+# Check for duplicate entries
+duplicates <- data_clean2[duplicated(data_clean2), ]
+n_duplicates <- nrow(duplicates)
+n_duplicates
+
+# Check for negative counts (if applicable)
+negative_counts <- data_clean2[data_clean2$n_quadrats < 0, ]
+n_negative_counts <- nrow(negative_counts)
+n_negative_counts
 ```
 
 ```{r}
@@ -420,9 +453,29 @@ ggsave(filename = "Output/coral_cover_site_plot.png",
        height = 6,
        dpi = 300)
 
+```
+
+```{r}
+#Statistical Analysis: ANOVA for percent cover across sites
+anova_results <- aov(percent_cover ~ Site, data = cover_transect2)
+summary(anova_results)
+
+#Post-hoc test if ANOVA is significant
+posthoc_results <- TukeyHSD(anova_results)
+posthoc_results
+
+#Calculate Diversity Indices (Shannon-Wiener Index)
+diversity_indices <- cover_transect2 %>%
+  group_by(Site) %>%
+  summarise(shannon_diversity = diversity(percent_cover, index = "shannon"))
+
+#Heatmap of Benthic Groups
+heatmap_data <- cover_transect2 %>%
+  pivot_wider(names_from = Label.code, values_from = percent_cover, values_fill = 0)
 
 ```
 
+```{r}
 
 
 
@@ -430,21 +483,5 @@ ggsave(filename = "Output/coral_cover_site_plot.png",
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-length(unique(data_clean$Name))
-length(unique(data_clean$Quadrat))
+```
 
