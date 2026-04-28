@@ -941,123 +941,123 @@ str(sites_benthic)
 
 6. Fish functional groups: backreef fish, block-level
 ```{r}
-# Package ID: knb-lter-mcr.6.64 Cataloging System:https://pasta.edirepository.org.
-# Data set title: MCR LTER: Coral Reef: Long-term Population and Community Dynamics: Fishes, ongoing since 2005.
-# Data set creator:    - Moorea Coral Reef LTER 
-# Data set creator:  Andrew Brooks - Moorea Coral Reef LTER 
-# Metadata Provider:    - Moorea Coral Reef LTER 
-# Contact:    - Information Manager Moorea Coral Reef LTER  - mcrlter@msi.ucsb.edu
-
-#Read the main fish observations table (dt1 → fish_main)
-
-options(HTTPUserAgent = "EDI_CodeGen")
-
-## ---------- Main fish table ----------
-
-fish_main_url  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-mcr/6/64/ac2c7a859ce8595ec1339e8530b9ba50"
-fish_main_file <- tempfile()
-
-try(
-  download.file(
-    fish_main_url,
-    fish_main_file,
-    method = "curl",
-    extra  = paste0(' -A "', getOption("HTTPUserAgent"), '"')
-  ),
-  silent = TRUE
-)
-
-if (is.na(file.size(fish_main_file))) {
-  download.file(fish_main_url, fish_main_file, method = "auto")
-}
-
-fish_main <- read.csv(
-  fish_main_file,
-  header = FALSE,
-  skip   = 1,
-  sep    = ",",
-  quote  = '"',
-  col.names = c(
-    "Year",
-    "Date",
-    "Start",
-    "End",
-    "Location",
-    "Site",
-    "Habitat",
-    "Depth",
-    "Transect",
-    "Swath",
-    "Taxonomy",
-    "Family",
-    "Count",
-    "Total_Length",
-    "Length_Anomaly",
-    "Biomass",
-    "Comment",
-    "Coarse_Trophic",
-    "Fine_Trophic",
-    "Cloud_Cover",
-    "Wind_Velocity",
-    "Sea_State",
-    "Swell",
-    "Visibility",
-    "Surge",
-    "Diver"
-  ),
-  stringsAsFactors = FALSE,
-  check.names = TRUE
-)
-
-unlink(fish_main_file)
-
-#Clean up types & sentinel values
-fish_main <- fish_main %>%
-  mutate(
-    Date  = as.Date(Date, format = "%Y-%m-%d"),
-    Start = as.factor(Start),
-    End   = as.factor(End),
-
-    Location = as.factor(Location),
-    Site     = as.factor(Site),
-    Habitat  = as.factor(Habitat),
-    Transect = as.factor(Transect),
-    Swath    = as.factor(Swath),
-
-    Taxonomy = ifelse(Taxonomy == "No fish observed", NA, Taxonomy),
-    Taxonomy = as.factor(Taxonomy),
-    Family   = as.factor(Family),
-
-    # numeric fields
-    Depth         = suppressWarnings(as.numeric(Depth)),
-    Count         = suppressWarnings(as.numeric(Count)),
-    Total_Length  = suppressWarnings(as.numeric(Total_Length)),
-    Biomass       = suppressWarnings(as.numeric(Biomass)),
-    Cloud_Cover   = suppressWarnings(as.numeric(Cloud_Cover)),
-    Wind_Velocity = suppressWarnings(as.numeric(Wind_Velocity)),
-    Sea_State     = suppressWarnings(as.numeric(Sea_State)),
-    Swell         = suppressWarnings(as.numeric(Swell)),
-    Visibility    = suppressWarnings(as.numeric(Visibility)),
-    Surge         = suppressWarnings(as.numeric(Surge)),
-
-    Length_Anomaly = ifelse(Length_Anomaly == "na", NA, Length_Anomaly),
-    Length_Anomaly = as.factor(Length_Anomaly),
-
-    Comment       = ifelse(Comment == "NA", NA, Comment),
-    Comment       = as.factor(Comment),
-
-    Coarse_Trophic = ifelse(Coarse_Trophic == "na", NA, Coarse_Trophic),
-    Coarse_Trophic = as.factor(Coarse_Trophic),
-    Fine_Trophic   = ifelse(Fine_Trophic == "na", NA, Fine_Trophic),
-    Fine_Trophic   = as.factor(Fine_Trophic),
-
-    # sentinel → NA for lengths, biomass, visibility
-    Total_Length = ifelse(Total_Length == -1, NA, Total_Length),
-    Biomass      = ifelse(Biomass %in% c(-1), NA, Biomass),
-    Visibility   = ifelse(Visibility == -1, NA, Visibility),
-
-    Diver = as.factor(Diver)
-  )
+# # Package ID: knb-lter-mcr.6.64 Cataloging System:https://pasta.edirepository.org.
+# # Data set title: MCR LTER: Coral Reef: Long-term Population and Community Dynamics: Fishes, ongoing since 2005.
+# # Data set creator:    - Moorea Coral Reef LTER 
+# # Data set creator:  Andrew Brooks - Moorea Coral Reef LTER 
+# # Metadata Provider:    - Moorea Coral Reef LTER 
+# # Contact:    - Information Manager Moorea Coral Reef LTER  - mcrlter@msi.ucsb.edu
+# 
+# #Read the main fish observations table (dt1 → fish_main)
+# 
+# options(HTTPUserAgent = "EDI_CodeGen")
+# 
+# ## ---------- Main fish table ----------
+# 
+# fish_main_url  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-mcr/6/64/ac2c7a859ce8595ec1339e8530b9ba50"
+# fish_main_file <- tempfile()
+# 
+# try(
+#   download.file(
+#     fish_main_url,
+#     fish_main_file,
+#     method = "curl",
+#     extra  = paste0(' -A "', getOption("HTTPUserAgent"), '"')
+#   ),
+#   silent = TRUE
+# )
+# 
+# if (is.na(file.size(fish_main_file))) {
+#   download.file(fish_main_url, fish_main_file, method = "auto")
+# }
+# 
+# fish_main <- read.csv(
+#   fish_main_file,
+#   header = FALSE,
+#   skip   = 1,
+#   sep    = ",",
+#   quote  = '"',
+#   col.names = c(
+#     "Year",
+#     "Date",
+#     "Start",
+#     "End",
+#     "Location",
+#     "Site",
+#     "Habitat",
+#     "Depth",
+#     "Transect",
+#     "Swath",
+#     "Taxonomy",
+#     "Family",
+#     "Count",
+#     "Total_Length",
+#     "Length_Anomaly",
+#     "Biomass",
+#     "Comment",
+#     "Coarse_Trophic",
+#     "Fine_Trophic",
+#     "Cloud_Cover",
+#     "Wind_Velocity",
+#     "Sea_State",
+#     "Swell",
+#     "Visibility",
+#     "Surge",
+#     "Diver"
+#   ),
+#   stringsAsFactors = FALSE,
+#   check.names = TRUE
+# )
+# 
+# unlink(fish_main_file)
+# 
+# #Clean up types & sentinel values
+# fish_main <- fish_main %>%
+#   mutate(
+#     Date  = as.Date(Date, format = "%Y-%m-%d"),
+#     Start = as.factor(Start),
+#     End   = as.factor(End),
+# 
+#     Location = as.factor(Location),
+#     Site     = as.factor(Site),
+#     Habitat  = as.factor(Habitat),
+#     Transect = as.factor(Transect),
+#     Swath    = as.factor(Swath),
+# 
+#     Taxonomy = ifelse(Taxonomy == "No fish observed", NA, Taxonomy),
+#     Taxonomy = as.factor(Taxonomy),
+#     Family   = as.factor(Family),
+# 
+#     # numeric fields
+#     Depth         = suppressWarnings(as.numeric(Depth)),
+#     Count         = suppressWarnings(as.numeric(Count)),
+#     Total_Length  = suppressWarnings(as.numeric(Total_Length)),
+#     Biomass       = suppressWarnings(as.numeric(Biomass)),
+#     Cloud_Cover   = suppressWarnings(as.numeric(Cloud_Cover)),
+#     Wind_Velocity = suppressWarnings(as.numeric(Wind_Velocity)),
+#     Sea_State     = suppressWarnings(as.numeric(Sea_State)),
+#     Swell         = suppressWarnings(as.numeric(Swell)),
+#     Visibility    = suppressWarnings(as.numeric(Visibility)),
+#     Surge         = suppressWarnings(as.numeric(Surge)),
+# 
+#     Length_Anomaly = ifelse(Length_Anomaly == "na", NA, Length_Anomaly),
+#     Length_Anomaly = as.factor(Length_Anomaly),
+# 
+#     Comment       = ifelse(Comment == "NA", NA, Comment),
+#     Comment       = as.factor(Comment),
+# 
+#     Coarse_Trophic = ifelse(Coarse_Trophic == "na", NA, Coarse_Trophic),
+#     Coarse_Trophic = as.factor(Coarse_Trophic),
+#     Fine_Trophic   = ifelse(Fine_Trophic == "na", NA, Fine_Trophic),
+#     Fine_Trophic   = as.factor(Fine_Trophic),
+# 
+#     # sentinel → NA for lengths, biomass, visibility
+#     Total_Length = ifelse(Total_Length == -1, NA, Total_Length),
+#     Biomass      = ifelse(Biomass %in% c(-1), NA, Biomass),
+#     Visibility   = ifelse(Visibility == -1, NA, Visibility),
+# 
+#     Diver = as.factor(Diver)
+#   )
 
 
 ```
