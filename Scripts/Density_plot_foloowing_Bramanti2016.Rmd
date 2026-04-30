@@ -1,0 +1,184 @@
+---
+title: "Density_plot_foloowing_Bramanti2016"
+output: html_document
+---
+
+```{r}
+#package 
+library(ggplot2)
+library(tidyverse)
+library(stringr)
+library(tidyr)
+library(scales)
+library(colorspace)
+library(ggplot2)
+library(ggthemes)
+library(vegan)
+```
+
+```{r}
+#import data haplotype / species 
+data_species <- read.csv("Data/Haplotype_data.csv")
+
+#import data sizes for each samples
+data_sizes <- read.csv("Data/POC_RA_Size.csv")
+
+#import quadrats benthics cover data
+data_quadrats <- read.csv("Data/20260226_Quadrat_Benthos_RA.csv")
+
+```
+
+```{r}
+#join both files by creating a database with the sizes, sites, transects , samples numbers and species 
+#because data_species is character and data_sizes is integer we need to put them in correct format to be link together
+data_species <- data_species %>%
+  mutate(Sample.ID = as.character(Sample.ID))
+
+data_sizes <- data_sizes %>%
+  mutate(Sample.ID = as.character(Sample.ID))
+
+df_joined <- left_join(data_species, data_sizes, by = "Sample.ID")
+
+#small check
+str(data_species$Sample.ID)
+str(data_sizes$Sample.ID)
+
+#remove column we don't need 
+df_ready <- df_joined %>%
+  select(-c(1, 2, 3, 4, 6, 7, 9))
+
+#remove the Na on the dataset 
+df_clean <- df_ready %>%
+  na.omit()
+```
+
+```{r}
+#sanity check
+#structure and types
+str(df_clean)
+
+#check ranges 
+summary(df_clean)
+
+#
+head(df_clean)
+
+#check for duplication
+sum(duplicated(df_clean))
+
+#find duplication 
+df_clean[duplicated(df_clean), ]
+
+#provide a list of duplicate sample.id sample
+df_clean %>%
+  count(Sample.ID) %>%
+  filter(n > 1)
+
+#checking what differ between duplication
+df_clean %>%
+  group_by(Sample.ID) %>%
+  summarise(across(everything(), n_distinct)) %>%
+  filter(if_any(-Sample.ID, ~ . > 1))
+
+#making sure all the duplication don't come from the dataset file join did previously 
+any(duplicated(data_species$Sample.ID))
+any(duplicated(data_sizes$Sample.ID))
+
+```
+
+```{r}
+#quadrats benthics cover extraction 
+#exract  transect name, site 
+data_quadrats_extract <- data_quadrats %>%
+  mutate(
+    Site = str_extract(Name, "S\\d+"),
+    Transect = str_extract(Name, "T\\d+")
+  )
+
+```
+
+```{r}
+#counting the number of quadrat gir each site and transect
+data_quadrat_count <- data_quadrats_extract %>%
+  distinct(Name, Site, Transect) %>%   
+  group_by(Site, Transect) %>%
+  summarise(n_quadrats = n(), .groups = "drop")
+```
+
+```{r}
+#filter the quadrat from the wrong transect in our case, T4, T5 and T6
+data_quadrats_filter <- data_quadrats_extract %>%
+  filter(!(
+    (Site == "S1" & Transect == "T4") |
+    (Site == "S1" & Transect == "T5") |
+    (Site == "S1" & Transect == "T6") |
+    (Site == "S2" & Transect == "T4") |
+    (Site == "S2" & Transect == "T5") |
+    (Site == "S2" & Transect == "T6") |
+    (Site == "S3" & Transect == "T4") |
+    (Site == "S3" & Transect == "T5") |
+    (Site == "S3" & Transect == "T6") |
+    (Site == "S4" & Transect == "T4") |
+    (Site == "S4" & Transect == "T5") |
+    (Site == "S4" & Transect == "T6") |
+    (Site == "S5" & Transect == "T4") |
+    (Site == "S5" & Transect == "T5") |
+    (Site == "S5" & Transect == "T6") |
+    (Site == "S6" & Transect == "T4") |
+    (Site == "S6" & Transect == "T5") |
+    (Site == "S6" & Transect == "T6") |
+    (Site == "S9" & Transect == "T4") |
+    (Site == "S9" & Transect == "T5") |
+    (Site == "S9" & Transect == "T6") |
+    (Site == "S11" & Transect == "T4") |
+    (Site == "S11" & Transect == "T5") |
+    (Site == "S11" & Transect == "T6") |
+    (Site == "S12" & Transect == "T4") |
+    (Site == "S12" & Transect == "T5") |
+    (Site == "S12" & Transect == "T6") |
+    (Site == "S14" & Transect == "T4") |
+    (Site == "S14" & Transect == "T5") |
+    (Site == "S14" & Transect == "T6") |
+    (Site == "S15" & Transect == "T4") |
+    (Site == "S15" & Transect == "T5") |
+    (Site == "S15" & Transect == "T6") |
+    (Site == "S18" & Transect == "T4") |
+    (Site == "S18" & Transect == "T5") |
+    (Site == "S18" & Transect == "T6") |
+    (is.na(Site) & Transect == "T2")))
+
+```
+
+```{r}
+#check on quadrats count after modification 
+data_quadrats_filter_count <- data_quadrats_filter %>%
+  distinct(Name, Site, Transect) %>%   
+  group_by(Site, Transect) %>%
+  summarise(n_quadrats = n(), .groups = "drop")
+
+```
+
+```{r}
+#check how many quadrats do we have for each site 
+data_quadrats_filter %>%
+  distinct(Name, Site) %>%
+  group_by(Site) %>%
+  summarise(n_quadrats = n())
+```
+
+```{r}
+#sanity check for the quadrats data 
+#compare before and after filtering the dataset 
+
+before <- count_quadrats(data_quadrats_extract)
+after  <- count_quadrats(data_quadrats_filter)
+
+comparison <- full_join(before, after,
+                        by = c("Site", "Transect"),
+                        suffix = c("_before", "_after"))
+
+comparison
+
+```
+
+
