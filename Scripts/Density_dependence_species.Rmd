@@ -143,6 +143,16 @@ density_combine[is.na(density_combine)] <- 0
 ggplot(density_combine, aes(x = adult.density, y = juvenile.density)) +
   geom_point() +
   geom_smooth(method = "lm", se = TRUE) +
+  stat_poly_eq(
+    aes(label = paste(
+      after_stat(eq.label),
+      after_stat(rr.label),
+      after_stat(p.value.label),
+      sep = "~~~"
+    )),
+    formula = y ~ x,
+    parse = TRUE
+  ) +
   labs(x = "Adult density (colonies/m²)",
        y = "Juvenile density (colonies/m²)") +
   theme_minimal()
@@ -179,6 +189,16 @@ ggplot(density_verrucosa,
            y = juvenile.density)) +
   geom_point() +
   geom_smooth(method = "lm", se = TRUE) +
+  stat_poly_eq(
+    aes(label = paste(
+      after_stat(eq.label),
+      after_stat(rr.label),
+      after_stat(p.value.label),
+      sep = "~~~"
+    )),
+    formula = y ~ x,
+    parse = TRUE
+  ) +
   labs(
     x = "Adult density (colonies/m²)",
     y = "P. verrucosa juvenile density (colonies/m²)"
@@ -219,6 +239,16 @@ ggplot(density_meandrina,
            y = juvenile.density)) +
   geom_point() +
   geom_smooth(method = "lm", se = TRUE) +
+  stat_poly_eq(
+    aes(label = paste(
+      after_stat(eq.label),
+      after_stat(rr.label),
+      after_stat(p.value.label),
+      sep = "~~~"
+    )),
+    formula = y ~ x,
+    parse = TRUE
+  ) +
   labs(
     x = "Adult density (colonies/m²)",
     y = "P. meandrina juvenile density (colonies/m²)"
@@ -253,6 +283,16 @@ ggplot(density_grandis,
            y = juvenile.density)) +
   geom_point() +
   geom_smooth(method = "lm", se = TRUE) +
+  stat_poly_eq(
+    aes(label = paste(
+      after_stat(eq.label),
+      after_stat(rr.label),
+      after_stat(p.value.label),
+      sep = "~~~"
+    )),
+    formula = y ~ x,
+    parse = TRUE
+  ) +
   labs(
     x = "Adult density (colonies/m²)",
     y = "P. grandis juvenile density (colonies/m²)"
@@ -287,6 +327,16 @@ ggplot(density_grandis,
            y = juvenile.density)) +
   geom_point() +
   geom_smooth(method = "lm", se = TRUE) +
+  stat_poly_eq(
+    aes(label = paste(
+      after_stat(eq.label),
+      after_stat(rr.label),
+      after_stat(p.value.label),
+      sep = "~~~"
+    )),
+    formula = y ~ x,
+    parse = TRUE
+  ) +
   labs(
     x = "Adult density (colonies/m²)",
     y = "P. grandis juvenile density (colonies/m²)"
@@ -322,6 +372,16 @@ ggplot(density_tuahiniensis,
            y = juvenile.density)) +
   geom_point() +
   geom_smooth(method = "lm", se = TRUE) +
+  stat_poly_eq(
+    aes(label = paste(
+      after_stat(eq.label),
+      after_stat(rr.label),
+      after_stat(p.value.label),
+      sep = "~~~"
+    )),
+    formula = y ~ x,
+    parse = TRUE
+  ) +
   labs(
     x = "Adult density (colonies/m²)",
     y = "P. tuahiniensis juvenile density (colonies/m²)"
@@ -356,6 +416,16 @@ ggplot(density_effusa,
            y = juvenile.density)) +
   geom_point() +
   geom_smooth(method = "lm", se = TRUE) +
+  stat_poly_eq(
+    aes(label = paste(
+      after_stat(eq.label),
+      after_stat(rr.label),
+      after_stat(p.value.label),
+      sep = "~~~"
+    )),
+    formula = y ~ x,
+    parse = TRUE
+  ) +
   labs(
     x = "Adult density (colonies/m²)",
     y = "P. effusa juvenile density (colonies/m²)"
@@ -390,6 +460,16 @@ ggplot(density_acuta,
            y = juvenile.density)) +
   geom_point() +
   geom_smooth(method = "lm", se = TRUE) +
+  stat_poly_eq(
+    aes(label = paste(
+      after_stat(eq.label),
+      after_stat(rr.label),
+      after_stat(p.value.label),
+      sep = "~~~"
+    )),
+    formula = y ~ x,
+    parse = TRUE
+  ) +
   labs(
     x = "Adult density (colonies/m²)",
     y = "P. acuta juvenile density (colonies/m²)"
@@ -435,6 +515,16 @@ ggplot(density_verrucosa,
            y = juvenile.density)) +
   geom_point(size = 3) +
   geom_smooth(method = "lm", se = TRUE) +
+  stat_poly_eq(
+    aes(label = paste(
+      after_stat(eq.label),
+      after_stat(rr.label),
+      after_stat(p.value.label),
+      sep = "~~~"
+    )),
+    formula = y ~ x,
+    parse = TRUE
+  ) +
   labs(
     x = "P. verrucosa adult density (colonies/m²)",
     y = "P. verrucosa juvenile density (colonies/m²)"
@@ -480,6 +570,16 @@ ggplot(density_meandrina,
            y = juvenile.density)) +
   geom_point(size = 3) +
   geom_smooth(method = "lm", se = TRUE) +
+  stat_poly_eq(
+    aes(label = paste(
+      after_stat(eq.label),
+      after_stat(rr.label),
+      after_stat(p.value.label),
+      sep = "~~~"
+    )),
+    formula = y ~ x,
+    parse = TRUE
+  ) +
   labs(
     x = "P. meandrina adult density (colonies/m²)",
     y = "P. meandrina juvenile density (colonies/m²)"
@@ -525,6 +625,16 @@ ggplot(density_grandis,
            y = juvenile.density)) +
   geom_point(size = 3) +
   geom_smooth(method = "lm", se = TRUE) +
+  stat_poly_eq(
+    aes(label = paste(
+      after_stat(eq.label),
+      after_stat(rr.label),
+      after_stat(p.value.label),
+      sep = "~~~"
+    )),
+    formula = y ~ x,
+    parse = TRUE
+  ) +
   labs(
     x = "P. grandis adult density (colonies/m²)",
     y = "P. grandis juvenile density (colonies/m²)"
@@ -570,6 +680,16 @@ ggplot(density_tuahiniensis,
            y = juvenile.density)) +
   geom_point(size = 3) +
   geom_smooth(method = "lm", se = TRUE) +
+  stat_poly_eq(
+    aes(label = paste(
+      after_stat(eq.label),
+      after_stat(rr.label),
+      after_stat(p.value.label),
+      sep = "~~~"
+    )),
+    formula = y ~ x,
+    parse = TRUE
+  ) +
   labs(
     x = "P. tuahiniensis adult density (colonies/m²)",
     y = "P. tuahiniensis juvenile density (colonies/m²)"
@@ -618,6 +738,16 @@ ggplot(density_effusa,
            y = juvenile.density)) +
   geom_point(size = 3) +
   geom_smooth(method = "lm", se = TRUE) +
+  stat_poly_eq(
+    aes(label = paste(
+      after_stat(eq.label),
+      after_stat(rr.label),
+      after_stat(p.value.label),
+      sep = "~~~"
+    )),
+    formula = y ~ x,
+    parse = TRUE
+  ) +
   labs(
     x = "P. effusa adult density (colonies/m²)",
     y = "P. effusa juvenile density (colonies/m²)"
@@ -666,6 +796,16 @@ ggplot(density_acuta,
            y = juvenile.density)) +
   geom_point(size = 3) +
   geom_smooth(method = "lm", se = TRUE) +
+  stat_poly_eq(
+    aes(label = paste(
+      after_stat(eq.label),
+      after_stat(rr.label),
+      after_stat(p.value.label),
+      sep = "~~~"
+    )),
+    formula = y ~ x,
+    parse = TRUE
+  ) +
   labs(
     x = "P. acuta adult density (colonies/m²)",
     y = "P. acuta juvenile density (colonies/m²)"
