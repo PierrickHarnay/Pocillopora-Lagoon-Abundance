@@ -1,0 +1,954 @@
+---
+title: "Density_dependence_species"
+output: html_document
+---
+
+```{r}
+#package 
+library(ggplot2)
+library(tidyverse)
+library(stringr)
+library(tidyr)
+library(scales)
+library(colorspace)
+library(ggplot2)
+library(ggthemes)
+library(vegan)
+library(ggpmisc)
+```
+
+```{r}
+#import data haplotype / species 
+data_species <- read.csv("Data/Haplotype_data_modified_duplication.csv")
+
+str(data_species)
+
+#import data sizes for each samples
+data_sizes <- read.csv("Data/POC_RA_Size.csv")
+
+#import quadrats benthics cover data
+data_quadrats <- read.csv("Data/20260226_Quadrat_Benthos_RA.csv")
+
+```
+
+```{r}
+#cleaning data_species and remove all the fail samples from the dataset 
+data_species_filter <- data_species %>%
+  filter(!is.na(Haplotype))
+
+#make data_species as numeric
+data_species$Sample.ID <- as.numeric(as.character(data_species$Sample.ID))
+
+str(data_species_filter)
+
+#convert to character 
+data_sizes$Diameter.mean <- as.numeric(data_sizes$Diameter.mean)
+
+data_species_filter$Sample.ID <- as.character(data_species_filter$Sample.ID)
+
+data_sizes$Sample.ID <- as.character(data_sizes$Sample.ID)
+
+data_sizes$Diameter.mean <- as.numeric(data_sizes$Diameter.mean)
+
+str(data_sizes)
+
+#combine data_sizes and data_species together
+data_size_species_combine <- inner_join(data_species_filter, data_sizes, by = "Sample.ID")
+
+duplicated(data_species_filter$Sample.ID)
+duplicated(data_sizes$Sample.ID)
+
+dup_ids_df <- data.frame(
+Sample.ID = unique(data_species_filter$Sample.ID[duplicated(data_species_filter$Sample.ID)])
+)
+
+#removing all the sample with an issue 
+data_species_nodup <- data_species_filter %>%
+  filter(!duplicated(Sample.ID) &
+         !duplicated(Sample.ID, fromLast = TRUE))
+
+#same manip for the size data to make sure no problem will showup during process 
+data_sizes_nodup <- data_sizes %>%
+  filter(!duplicated(Sample.ID) &
+         !duplicated(Sample.ID, fromLast = TRUE))
+
+#join both new dataset without duplication 
+data_size_species_combine <- inner_join(
+  data_species_nodup,
+  data_sizes_nodup,
+  by = "Sample.ID"
+)
+
+#cheking if everything look ok 
+any(duplicated(data_species_nodup$Sample.ID))
+
+any(duplicated(data_sizes_nodup$Sample.ID))
+```
+
+```{r}
+#create new data set with filtering 
+#create a selection with the smallest colonies and the biggest colonies 
+#small colonies need to be under or equal 5cm square are count as juvenile more than 5cm square is count as adult colonies 
+#create data with the corals having a size under 5cm square and a file with the colonies having a size bigger than 5cm square
+#create a file with all the species ID and sample number 
+#remove all the NA or line who don't have measurement 
+
+#for the small colonies used data sizes and create both dataset
+#removing the column I don't need
+data_size_meandiameters <- data_sizes_nodup %>%
+  select(-Diameter.1, -Diameter.2, -Diameter.3)
+
+str(data_size_meandiameters)
+
+#convert to character 
+data_size_meandiameters$Diameter.mean <- as.numeric(data_size_meandiameters$Diameter.mean)
+
+#filter data data_size_meandiameters with juvenille and adult colonies 
+juvenile <- data_size_meandiameters %>%
+  filter(Diameter.mean <= 4)
+
+adult <- data_size_meandiameters %>%
+  filter(Diameter.mean > 4)
+
+```
+
+```{r}
+#calculating the density of poc per site in fonction of their sizes 
+#juvenille 
+#add to the code .groups = "drop" to avoid hidden grouping 
+density_juvenile <- juvenile %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(juvenile.density = count / 75)
+
+density_adult <- adult %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(adult.density = count / 75)
+
+density_combine <- left_join(
+  density_juvenile,
+  density_adult,
+  by = "Site"
+)
+
+#bcs we combine and it's possible that some site don't have adult or juvenillle let's make a quick check 
+density_combine[is.na(density_combine)] <- 0
+
+```
+
+```{r}
+#check first with Poc spp.
+#plot with ggplot 
+ggplot(density_combine, aes(x = adult.density, y = juvenile.density)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(x = "Adult density (colonies/m²)",
+       y = "Juvenile density (colonies/m²)") +
+  theme_minimal()
+
+
+
+
+```
+```{r}
+#P. verrucosa 
+#filter juvenilles and keep only P. verrucosa 
+juvenile_verrucosa <- data_size_species_combine %>%
+  filter(
+    Species == "P. verrucosa",
+    Diameter.mean <= 4
+  )
+
+#calculate juvenille density per site 
+density_juvenile_verrucosa <- juvenile_verrucosa %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(juvenile.density = count / 75)
+
+#combine both new data with only P. verrucosa VS all adults 
+density_verrucosa <- left_join(
+  density_juvenile_verrucosa,
+  density_adult,
+  by = "Site"
+)
+
+#plot density dependence. P. verrucosa juvenille VS all adults 
+ggplot(density_verrucosa,
+       aes(x = adult.density,
+           y = juvenile.density)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "Adult density (colonies/m²)",
+    y = "P. verrucosa juvenile density (colonies/m²)"
+  ) +
+  theme_minimal()
+
+#plot density dependence of juvenille of P. verrucosa VS adults P. verrucosa colonies 
+
+
+
+```
+
+```{r}
+#P. meandrina
+#filter juvenilles and keep only P. meandrina 
+juvenile_meandrina <- data_size_species_combine %>%
+  filter(
+    Species == "P. meandrina",
+    Diameter.mean <= 4
+  )
+
+#calculate juvenille density per site 
+density_juvenile_meandrina <- juvenile_meandrina %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(juvenile.density = count / 75)
+
+#combine both new data with only P. meandrina VS all adults 
+density_meandrina <- left_join(
+  density_juvenile_meandrina,
+  density_adult,
+  by = "Site"
+)
+
+#plot density dependence. P. vmeandrina juvenille VS all adults 
+ggplot(density_meandrina,
+       aes(x = adult.density,
+           y = juvenile.density)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "Adult density (colonies/m²)",
+    y = "P. meandrina juvenile density (colonies/m²)"
+  ) +
+  theme_minimal()
+```
+```{r}
+#P. grandis
+#filter juvenilles and keep only P. grandis 
+juvenile_grandis <- data_size_species_combine %>%
+  filter(
+    Species == "P. grandis",
+    Diameter.mean <= 4
+  )
+
+#calculate juvenille density per site 
+density_juvenile_grandis <- juvenile_grandis %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(juvenile.density = count / 75)
+
+#combine both new data with only P. meandrina VS all adults 
+density_grandis <- left_join(
+  density_juvenile_grandis,
+  density_adult,
+  by = "Site"
+)
+
+#plot density dependence. P. vmeandrina juvenille VS all adults 
+ggplot(density_grandis,
+       aes(x = adult.density,
+           y = juvenile.density)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "Adult density (colonies/m²)",
+    y = "P. grandis juvenile density (colonies/m²)"
+  ) +
+  theme_minimal()
+```
+```{r}
+#P. grandis
+#filter juvenilles and keep only P. grandis 
+juvenile_grandis <- data_size_species_combine %>%
+  filter(
+    Species == "P. grandis",
+    Diameter.mean <= 4
+  )
+
+#calculate juvenille density per site 
+density_juvenile_grandis <- juvenile_grandis %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(juvenile.density = count / 75)
+
+#combine both new data with only P. meandrina VS all adults 
+density_grandis <- left_join(
+  density_juvenile_grandis,
+  density_adult,
+  by = "Site"
+)
+
+#plot density dependence. P. vmeandrina juvenille VS all adults 
+ggplot(density_grandis,
+       aes(x = adult.density,
+           y = juvenile.density)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "Adult density (colonies/m²)",
+    y = "P. grandis juvenile density (colonies/m²)"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+#P. tuahiniensis
+#filter juvenilles and keep only P. tuahiniensis 
+juvenile_tuahiniensis <- data_size_species_combine %>%
+  filter(
+    Species == "P. tuahiniensis",
+    Diameter.mean <= 4
+  )
+
+#calculate juvenille density per site 
+density_juvenile_tuahiniensis <- juvenile_tuahiniensis %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(juvenile.density = count / 75)
+
+#combine both new data with only P. tuahiniensis VS all adults 
+density_tuahiniensis <- left_join(
+  density_juvenile_tuahiniensis,
+  density_adult,
+  by = "Site"
+)
+
+#plot density dependence. P. tuahiniensis juvenille VS all adults 
+ggplot(density_tuahiniensis,
+       aes(x = adult.density,
+           y = juvenile.density)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "Adult density (colonies/m²)",
+    y = "P. tuahiniensis juvenile density (colonies/m²)"
+  ) +
+  theme_minimal()
+```
+```{r}
+#P. effusa
+#filter juvenilles and keep only P. effusa
+juvenile_effusa <- data_size_species_combine %>%
+  filter(
+    Species == "P. effusa",
+    Diameter.mean <= 4
+  )
+
+#calculate juvenille density per site 
+density_juvenile_effusa <- juvenile_effusa %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(juvenile.density = count / 75)
+
+#combine both new data with only P. effusa VS all adults 
+density_effusa <- left_join(
+  density_juvenile_effusa,
+  density_adult,
+  by = "Site"
+)
+
+#plot density dependence. P. effusa juvenille VS all adults 
+ggplot(density_effusa,
+       aes(x = adult.density,
+           y = juvenile.density)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "Adult density (colonies/m²)",
+    y = "P. effusa juvenile density (colonies/m²)"
+  ) +
+  theme_minimal()
+```
+```{r}
+#P. acuta
+#filter juvenilles and keep only P. acuta
+juvenile_acuta <- data_size_species_combine %>%
+  filter(
+    Species == "P. acuta",
+    Diameter.mean <= 4
+  )
+
+#calculate juvenille density per site 
+density_juvenile_acuta <- juvenile_acuta %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(juvenile.density = count / 75)
+
+#combine both new data with only P. acuta VS all adults 
+density_acuta <- left_join(
+  density_juvenile_acuta,
+  density_adult,
+  by = "Site"
+)
+
+#plot density dependence. P. acuta juvenille VS all adults 
+ggplot(density_acuta,
+       aes(x = adult.density,
+           y = juvenile.density)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "Adult density (colonies/m²)",
+    y = "P. acuta juvenile density (colonies/m²)"
+  ) +
+  theme_minimal()
+```
+```{r}
+#plotting DD juvenille P. verrucosa VS adults P. verrucosa 
+#filter data 
+verrucosa <- data_size_species_combine %>%
+  filter(Species == "P. verrucosa")
+
+#filter P. verrucosa juvenille 
+verrucosa_juvenile <- verrucosa %>%
+  filter(Diameter.mean <= 4)
+
+#filter P. verrucosa adult 
+verrucosa_adult <- verrucosa %>%
+  filter(Diameter.mean > 4)
+
+#juvenille density per site 
+density_verrucosa_juvenile <- verrucosa_juvenile %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(juvenile.density = count / 75)
+
+#adult density per site 
+density_verrucosa_adult <- verrucosa_adult %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(adult.density = count / 75)
+
+#combine juvenille and adults 
+density_verrucosa <- left_join(
+  density_verrucosa_juvenile,
+  density_verrucosa_adult,
+  by = "Site"
+)
+
+#plot relationship between juvenille P. verrucosa VS adults P. verrucosa 
+ggplot(density_verrucosa,
+       aes(x = adult.density,
+           y = juvenile.density)) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "P. verrucosa adult density (colonies/m²)",
+    y = "P. verrucosa juvenile density (colonies/m²)"
+  ) +
+  theme_minimal()
+```
+```{r}
+#plotting DD juvenille P. meandrina  VS adults P. meandrina 
+#filter data 
+meandrina <- data_size_species_combine %>%
+  filter(Species == "P. meandrina")
+
+#filter P. meandrina juvenille 
+meandrina_juvenile <- meandrina %>%
+  filter(Diameter.mean <= 4)
+
+#filter P. verrucosa adult 
+meandrina_adult <- meandrina %>%
+  filter(Diameter.mean > 4)
+
+#juvenille density per site 
+density_meandrina_juvenile <- meandrina_juvenile %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(juvenile.density = count / 75)
+
+#adult density per site 
+density_meandrina_adult <- meandrina_adult %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(adult.density = count / 75)
+
+#combine juvenille and adults 
+density_meandrina <- left_join(
+  density_meandrina_juvenile,
+  density_meandrina_adult,
+  by = "Site"
+)
+
+#plot relationship between juvenille P. meandrina VS adults P. meandrina
+ggplot(density_meandrina,
+       aes(x = adult.density,
+           y = juvenile.density)) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "P. meandrina adult density (colonies/m²)",
+    y = "P. meandrina juvenile density (colonies/m²)"
+  ) +
+  theme_minimal()
+```
+```{r}
+#plotting DD juvenille P. grandis  VS adults P. grandis
+#filter data 
+grandis <- data_size_species_combine %>%
+  filter(Species == "P. grandis")
+
+#filter P. grandis juvenille 
+grandis_juvenile <- grandis %>%
+  filter(Diameter.mean <= 4)
+
+#filter P. grandis adult 
+grandis_adult <- grandis %>%
+  filter(Diameter.mean > 4)
+
+#juvenille density per site 
+density_grandis_juvenile <- grandis_juvenile %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(juvenile.density = count / 75)
+
+#adult density per site 
+density_grandis_adult <- grandis_adult %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(adult.density = count / 75)
+
+#combine juvenille and adults 
+density_grandis <- left_join(
+  density_grandis_juvenile,
+  density_grandis_adult,
+  by = "Site"
+)
+
+#plot relationship between juvenille P. grandis VS adults P. grandis
+ggplot(density_grandis,
+       aes(x = adult.density,
+           y = juvenile.density)) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "P. grandis adult density (colonies/m²)",
+    y = "P. grandis juvenile density (colonies/m²)"
+  ) +
+  theme_minimal()
+```
+```{r}
+#plotting DD juvenille P. tuahiniensis  VS adults P. tuahiniensis
+#filter data 
+tuahiniensis <- data_size_species_combine %>%
+  filter(Species == "P. tuahiniensis")
+
+#filter P. tuahiniensis juvenille 
+tuahiniensis_juvenile <- tuahiniensis %>%
+  filter(Diameter.mean <= 4)
+
+#filter P. tuahiniensis adult 
+tuahiniensis_adult <- tuahiniensis %>%
+  filter(Diameter.mean > 4)
+
+#juvenille density per site 
+density_tuahiniensis_juvenile <- tuahiniensis_juvenile %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(juvenile.density = count / 75)
+
+#adult density per site 
+density_tuahiniensis_adult <- tuahiniensis_adult %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(adult.density = count / 75)
+
+#combine juvenille and adults 
+density_tuahiniensis <- left_join(
+  density_tuahiniensis_juvenile,
+  density_tuahiniensis_adult,
+  by = "Site"
+)
+
+#plot relationship between juvenille P. tuahiniensis VS adults P. tuahiniensis
+ggplot(density_tuahiniensis,
+       aes(x = adult.density,
+           y = juvenile.density)) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "P. tuahiniensis adult density (colonies/m²)",
+    y = "P. tuahiniensis juvenile density (colonies/m²)"
+  ) +
+  theme_minimal()
+```
+```{r}
+#plotting DD juvenille P. effusa  VS adults P. effusa
+#filter data 
+effusa <- data_size_species_combine %>%
+  filter(Species == "P. effusa")
+
+#filter P. effusa juvenille 
+effusa_juvenile <- effusa %>%
+  filter(Diameter.mean <= 4)
+
+#filter P. effusa adult 
+effusa_adult <- effusa %>%
+  filter(Diameter.mean > 4)
+
+#juvenille density per site 
+density_effusa_juvenile <- effusa_juvenile %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(juvenile.density = count / 75)
+
+#adult density per site 
+density_effusa_adult <- effusa_adult %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(adult.density = count / 75)
+
+#combine juvenille and adults 
+density_effusa <- left_join(
+  density_effusa_juvenile,
+  density_effusa_adult,
+  by = "Site"
+)
+
+#replace NA per 0
+density_effusa[is.na(density_effusa)] <- 0
+
+#plot relationship between juvenille P. effusa VS adults P. effusa
+ggplot(density_effusa,
+       aes(x = adult.density,
+           y = juvenile.density)) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "P. effusa adult density (colonies/m²)",
+    y = "P. effusa juvenile density (colonies/m²)"
+  ) +
+  theme_minimal()
+```
+```{r}
+#plotting DD juvenille P. acuta  VS adults P. acuta
+#filter data 
+acuta <- data_size_species_combine %>%
+  filter(Species == "P. acuta")
+
+#filter P. acuta juvenille 
+acuta_juvenile <- acuta %>%
+  filter(Diameter.mean <= 4)
+
+#filter P. acuta adult 
+acuta_adult <- acuta %>%
+  filter(Diameter.mean > 4)
+
+#juvenille density per site 
+density_acuta_juvenile <- acuta_juvenile %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(juvenile.density = count / 75)
+
+#adult density per site 
+density_acuta_adult <- acuta_adult %>%
+  group_by(Site) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(adult.density = count / 75)
+
+#combine juvenille and adults 
+density_acuta <- left_join(
+  density_acuta_juvenile,
+  density_acuta_adult,
+  by = "Site"
+)
+
+#replace NA per 0
+density_acuta[is.na(density_acuta)] <- 0
+
+#plot relationship between juvenille P. acuta VS adults P. acuta
+ggplot(density_acuta,
+       aes(x = adult.density,
+           y = juvenile.density)) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "P. acuta adult density (colonies/m²)",
+    y = "P. acuta juvenile density (colonies/m²)"
+  ) +
+  theme_minimal()
+```
+
+
+
+```{r}
+
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+#extracting the coral cover of pocillopora inside the datafile 
+#exract  transect name, site 
+#exract  transect name, site 
+data_clean <- data_quadrats %>%
+  mutate(
+    Site = str_extract(Name, "S\\d+"),
+    Transect = str_extract(Name, "T\\d+")
+  )
+
+```
+
+
+```{r}
+#counting the number of quadrat gir each site and transect
+quadrat_count <- data_clean %>%
+  distinct(Name, Site, Transect) %>%   
+  group_by(Site, Transect) %>%
+  summarise(n_quadrats = n(), .groups = "drop")
+```
+
+```{r}
+#filter the quadrat from the wrong transect in our case, T4, T5 and T6
+data_clean2 <- data_clean %>%
+  filter(!(
+    (Site == "S1" & Transect == "T6") |
+    (Site == "S2" & Transect == "T4") |
+    (Site == "S4" & Transect == "T4") |
+    (Site == "S5" & Transect == "T4") |
+    (Site == "S5" & Transect == "T6") |
+    (is.na(Site) & Transect == "T2")
+  ))
+
+```
+
+```{r}
+#check on quadrats count after modification 
+quadrat_count2 <- data_clean2 %>%
+  distinct(Name, Site, Transect) %>%   
+  group_by(Site, Transect) %>%
+  summarise(n_quadrats = n(), .groups = "drop")
+
+```
+
+```{r}
+#check the average of qudrats per site 
+quadrat_per_site <- data_clean2 %>%
+  distinct(Name, Site) %>%   
+  group_by(Site) %>%
+  summarise(n_quadrats = n(), .groups = "drop")
+
+```
+
+```{r}
+#average across sites 
+mean_quadrats <- mean(quadrat_per_site$n_quadrats)
+min_quadrats <- min(quadrat_per_site$n_quadrats)
+max_quadrats <- max(quadrat_per_site$n_quadrats)
+
+mean_quadrats
+min_quadrats
+max_quadrats
+```
+```{r}
+#check the sanity of data
+# Check for NA values
+na_counts <- colSums(is.na(data_clean2))
+na_counts
+
+# Bar plot of quadrats per site
+ggplot(quadrat_per_site, aes(x = Site, y = n_quadrats)) +
+  geom_bar(stat = "identity", fill = "lightblue") +
+  theme_minimal() +
+  labs(title = "Number of Quadrats per Site", x = "Site", y = "Number of Quadrats")
+
+# Boxplot of quadrats per transect
+quadrat_count2 %>%
+  ggplot(aes(x = Transect, y = n_quadrats)) +
+  geom_boxplot(fill = "lightgreen") +
+  theme_minimal() +
+  labs(title = "Quadrats Count Distribution by Transect", x = "Transect", y = "Number of Quadrats")
+
+# Check structure of cleaned data
+str(data_clean2)
+
+# Check for duplicate entries
+duplicates <- data_clean2[duplicated(data_clean2), ]
+n_duplicates <- nrow(duplicates)
+n_duplicates
+
+# Check for negative counts (if applicable)
+negative_counts <- data_clean2[data_clean2$n_quadrats < 0, ]
+n_negative_counts <- nrow(negative_counts)
+n_negative_counts
+```
+
+
+
+
+
+```{r}
+#calculating the percent cover 
+cover_quadrat <- data_clean2 %>%
+  group_by(Name, Label.code) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(Name) %>%
+  mutate(percent_cover = n / sum(n) * 100)
+
+#add back site and transect
+cover_quadrat <- cover_quadrat %>%
+  left_join(
+    data_clean2 %>%
+      distinct(Name, Site, Transect),
+    by = "Name"
+  )
+
+#check to see if each transect is at 100%
+cover_quadrat %>%
+  group_by(Name) %>%
+  summarise(total = sum(percent_cover)) %>%
+  summary()
+
+```
+
+
+```{r}
+------------
+  
+#checking for missing categorie 
+table(data_clean2$Label.code, useNA = "ifany")
+
+#check for missing point 
+data_clean2 %>%
+  group_by(Site, Transect) %>%
+  summarise(total_points = n())
+
+#put everything at 100%
+cover_transect2 <- data_clean2 %>%
+  group_by(Site, Transect, Label.code) %>%
+  summarise(n_points = n(), .groups = "drop") %>%
+  group_by(Site, Transect) %>%
+  mutate(percent_cover = n_points / sum(n_points) * 100) %>%
+  ungroup()
+
+#plot the graph with the 100% cver with all categorie inside 
+ggplot(cover_transect2,
+       aes(x = Transect,
+           y = percent_cover,
+           fill = Label.code)) +
+  geom_bar(stat = "identity", width = 0.8) +
+  facet_wrap(~ Site) +
+  ylab("Relative Abundance (%)") +
+  xlab("Transect") +
+  theme_classic() +
+  theme(
+    strip.text = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+#add all the coral genus in one categorie call "coral"
+unique(data_clean2$Label.code)
+
+#adding a column for Coral
+coral_genera <- c("Porites", "Montipora", "Tubastrea",
+                  "Pocillopo", "Psammomora", "Acropora","Millepora", "Leptoseris", "Pavona","Acanthastr", "Pachyseris", "Leptastrea", "Astreopora", "Cyphastrea", "Gardinoser", "Lobophylli", "Fungia", "Sandolitha", "Montastrea", "Un coral" )  
+
+data_clean2 <- data_clean2 %>%
+  mutate(
+    Benthic_group = ifelse(Label.code %in% coral_genera,
+                           "Coral",
+                           Label.code)
+  )
+
+#recalculating the percent cover 
+cover_site_coral <- data_clean2 %>%
+  group_by(Site, Benthic_group) %>%
+  summarise(n_points = n(), .groups = "drop") %>%
+  group_by(Site) %>%
+  mutate(percent_cover = n_points / sum(n_points) * 100) %>%
+  ungroup()
+
+#organize the site for the graph 
+cover_site_coral <- cover_transect_coral %>%
+  mutate(Site = factor(Site, levels = c("S1", "S2", "S3", "S4", "S5", "S6", "S9", "S11", "S12", "S14", "S15", "S18")))  
+
+#plot for the main categorie 
+main_categ_cover_plot <- ggplot(cover_site_coral,
+       aes(x = Site,
+           y = percent_cover,
+           fill = Benthic_group)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ Site) +
+  ylab("Relative Abundance (%)") +
+  xlab("Site") +
+  theme_classic()
+
+#save the figure as jpg 
+ggsave(filename = "Output/main_categ_cover_transect_plot.png",  # path to your folder
+       plot = main_categ_cover_plot,
+       width = 12,      # width in inches
+       height = 6,      # height in inches
+       dpi = 300)       # resolution
+
+
+#same process but this time we just plot the coral genus relative abundance inside the transect 
+#keep only the coral point
+coral_only <- data_clean2 %>%
+  filter(Label.code %in% coral_genera)
+
+#calculate the genus composition for each transect
+coral_site_comp <- coral_only %>%
+  group_by(Site, Label.code) %>%
+  summarise(n_points = n(), .groups = "drop") %>%
+  group_by(Site) %>%
+  mutate(percent_coral = n_points / sum(n_points) * 100) %>%
+  ungroup()
+
+#filter to only keep pocillopora data 
+pocillopora_site_comp <- coral_site_comp %>%
+  filter(Label.code == "Pocillopo")
+
+#join juvenile poc density to % adult cover 
+pocillopora_site_comp_combine <- left_join(density_juvenile, pocillopora_site_comp, by = "Site")
+
+#plot with ggplot 
+ggplot(pocillopora_site_comp_combine,
+       aes(x = percent_coral, y = juvenile.density)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE) +
+  stat_poly_eq(aes(label = paste(..eq.label.., ..rr.label.., ..p.value.label.., sep = " ~~~")),
+               formula = y ~ x,
+               parse = TRUE) +
+  labs(x = "Adult % cover",
+       y = "Juvenile density (colonies/m²)") +
+  theme_minimal()
+
+
+
+
+```
+
+
+
