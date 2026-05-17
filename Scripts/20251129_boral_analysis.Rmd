@@ -2186,7 +2186,7 @@ glimpse(sites_env_full)
 10.2 Decide which variables to keep as predictors
 ```{r}
 # colnames(sites_env_full)
-
+##add PCA here 
 
 env_predictors_raw <- sites_env_full %>%
   select(
@@ -3167,7 +3167,8 @@ ggsave(
   units = "in"
 )
 
-
+#######
+### WAIC, need to add it to the model to check the sanity 
 
 ```
 
