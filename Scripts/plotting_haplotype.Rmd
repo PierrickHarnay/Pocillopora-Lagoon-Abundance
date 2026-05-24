@@ -585,6 +585,45 @@ ggsave("Output/relabund.bysite.jpg", RA.plot , width = 6, height = 4 )
 # shore_plot
 ```
 ```{r}
+#calculate total relative abundance 
+relative_abundance_total <- data %>%
+  group_by(Species) %>%
+  summarise(Count = n(), .groups = "drop") %>%
+  mutate(Relative_Abundance = Count / sum(Count))
+
+#plot the entire island in one bar plot
+RA_total_onebarplot <- ggplot(relative_abundance_total,
+       aes(x = "Island",
+           y = Relative_Abundance,
+           fill = Species)) +
+  
+  geom_bar(stat = "identity") +
+  
+  labs(x = "",
+       y = "Relative Abundance") +
+  
+  scale_y_continuous(labels = scales::percent) +
+  
+  scale_fill_manual(values = color_mapping) +
+  
+  theme_minimal() +
+  
+  theme(
+    legend.position = "right"
+  )
+
+RA_total_onebarplot
+
+ggsave("Output/RA_total_onebarplott.jpg", RA_total_onebarplot , width = 6, height = 4 )
+```
+
+
+
+
+
+
+
+```{r}
 #make it at the correct site order 
 relative_abundance.t123$Site <- factor(
   relative_abundance.t123$Site,

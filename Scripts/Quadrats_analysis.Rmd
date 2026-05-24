@@ -454,6 +454,36 @@ ggsave(filename = "Output/coral_cover_site_plot.png",
        dpi = 300)
 
 ```
+```{r}
+#grouping all the relative abundance per site to the full island
+coral_island_comp <- coral_only %>%
+  group_by(Label.code) %>%
+  summarise(n_points = n(), .groups = "drop") %>%
+  mutate(percent_coral = n_points / sum(n_points) * 100)
+
+coral_cover_island <- ggplot(coral_island_comp,
+       aes(x = "Island",
+           y = percent_coral,
+           fill = Label.code)) +
+  
+  geom_bar(stat = "identity") +
+  
+  scale_fill_manual(values = highlight_colors) +
+  
+  theme_classic() +
+  
+  labs(
+    x = "",
+    y = "Relative Coral Abundance (%)",
+    fill = "Coral Genus"
+  )
+
+ggsave(filename = "Output/coral_cover_island.png",
+       plot = coral_cover_island,
+       width = 10,
+       height = 6,
+       dpi = 300)
+```
 
 ```{r}
 #Statistical Analysis: ANOVA for percent cover across sites

@@ -765,62 +765,124 @@ ggsave(
 
 5.1 Download benthic cover data and clean
 ```{r}
-# Package ID: knb-lter-mcr.1038.14 Cataloging System:https://pasta.edirepository.org.
-# Data set title: MCR LTER: Coral Reef: Long-term Community Dynamics: Backreef (Lagoon) Corals Annual Survey, ongoing since 2005.
-# Data set creator:    - Moorea Coral Reef LTER 
-# Data set creator:  Peter Edmunds - Moorea Coral Reef LTER 
-# Metadata Provider:  Hillary Krumbholz - MCR LTER 
-# Contact:    - Information Manager MCR LTER  - hkrumbholz@ucsb.edu
-
-options(HTTPUserAgent = "EDI_CodeGen")
-	      
-# URL for table 1 (simple cover: coral / macroalgae / sand / millepora / ctb)
-benthic_simple_url <- 
-  "https://pasta.lternet.edu/package/data/eml/knb-lter-mcr/1038/14/b7ca625d17a5630441af8c229cc0ab92"
-
-benthic_simple_file <- tempfile()
-
-try(
-  download.file(
-    benthic_simple_url, 
-    benthic_simple_file,
-    method = "curl",
-    extra = paste0(' -A "', getOption("HTTPUserAgent"), '"')
-  ),
-  silent = TRUE
-)
-
-if (is.na(file.size(benthic_simple_file))) {
-  download.file(benthic_simple_url, benthic_simple_file, method = "auto")
-}
-
-# Read cleanly
-benthic_simple_raw <- read_csv(
-  benthic_simple_file,
-  skip = 1,
-  col_names = c(
-    "year", "site", "habitat", "depth", "quad", "patch",
-    "coral", "macroalgae", "sand", "millepora", "ctb",
-    "sub_squares", "note"
-  ),
-  na = c("na", "NA", "BW", "")
-)
-
-unlink(benthic_simple_file)
-
-benthic_simple <- benthic_simple_raw %>%
-  mutate(
-    site    = as.factor(site),
-    habitat = as.factor(habitat),
-    quad    = as.factor(quad),
-    patch   = as.factor(patch),
-    note    = as.factor(note),
-    depth   = suppressWarnings(as.numeric(depth)),
-    across(where(is.character))  # ensures numeric cols clean
-  )
+# # Package ID: knb-lter-mcr.1038.14 Cataloging System:https://pasta.edirepository.org.
+# # Data set title: MCR LTER: Coral Reef: Long-term Community Dynamics: Backreef (Lagoon) Corals Annual Survey, ongoing since 2005.
+# # Data set creator:    - Moorea Coral Reef LTER 
+# # Data set creator:  Peter Edmunds - Moorea Coral Reef LTER 
+# # Metadata Provider:  Hillary Krumbholz - MCR LTER 
+# # Contact:    - Information Manager MCR LTER  - hkrumbholz@ucsb.edu
+# 
+# options(HTTPUserAgent = "EDI_CodeGen")
+# 	      
+# # URL for table 1 (simple cover: coral / macroalgae / sand / millepora / ctb)
+# benthic_simple_url <- 
+#   "https://pasta.lternet.edu/package/data/eml/knb-lter-mcr/1038/14/b7ca625d17a5630441af8c229cc0ab92"
+# 
+# benthic_simple_file <- tempfile()
+# 
+# try(
+#   download.file(
+#     benthic_simple_url, 
+#     benthic_simple_file,
+#     method = "curl",
+#     extra = paste0(' -A "', getOption("HTTPUserAgent"), '"')
+#   ),
+#   silent = TRUE
+# )
+# 
+# if (is.na(file.size(benthic_simple_file))) {
+#   download.file(benthic_simple_url, benthic_simple_file, method = "auto")
+# }
+# 
+# # Read cleanly
+# benthic_simple_raw <- read_csv(
+#   benthic_simple_file,
+#   skip = 1,
+#   col_names = c(
+#     "year", "site", "habitat", "depth", "quad", "patch",
+#     "coral", "macroalgae", "sand", "millepora", "ctb",
+#     "sub_squares", "note"
+#   ),
+#   na = c("na", "NA", "BW", "")
+# )
+# 
+# unlink(benthic_simple_file)
+# 
+# benthic_simple <- benthic_simple_raw %>%
+#   mutate(
+#     site    = as.factor(site),
+#     habitat = as.factor(habitat),
+#     quad    = as.factor(quad),
+#     patch   = as.factor(patch),
+#     note    = as.factor(note),
+#     depth   = suppressWarnings(as.numeric(depth)),
+#     across(where(is.character))  # ensures numeric cols clean
+#   )
 
 ```
+5.1 Importing data from benthics cover (site characterization)
 
+```{r}
+benthic_data <- read.csv("Data/20260226_Quadrat_Benthos_RA.csv")
+
+str(benthic_data)
+
+#split the quadrats name in different part to show the quadrats number, site and transect 
+benthics_data_split <- benthic_data %>%
+   separate(
+    Name,
+    into = c("Quadrat", "Site", "Transect"),
+    sep = "_"
+  ) %>%
+  mutate(
+    Transect = str_remove(Transect, "\\.JPG")
+  )
+
+#select only transect 1 to 3 and exclude 4 for 6 
+benthic_data_T123 <- benthics_data_split %>%
+  filter(!(
+    (Site == "S1" & Transect == "T4") |
+    (Site == "S1" & Transect == "T5") |
+    (Site == "S1" & Transect == "T6") |
+    (Site == "S2" & Transect == "T4") |
+    (Site == "S2" & Transect == "T5") |
+    (Site == "S2" & Transect == "T6") |
+    (Site == "S3" & Transect == "T4") |
+    (Site == "S3" & Transect == "T5") |
+    (Site == "S3" & Transect == "T6") |
+    (Site == "S4" & Transect == "T4") |
+    (Site == "S4" & Transect == "T5") |
+    (Site == "S4" & Transect == "T6") |
+    (Site == "S4" & Transect == "T6") |
+    (Site == "S5" & Transect == "T4") |
+    (Site == "S5" & Transect == "T5") |
+    (Site == "S5" & Transect == "T6") |
+    (Site == "S6" & Transect == "T4") |
+    (Site == "S6" & Transect == "T5") |
+    (Site == "S6" & Transect == "T6") |
+    (Site == "S9" & Transect == "T4") |
+    (Site == "S9" & Transect == "T5") |
+    (Site == "S9" & Transect == "T6") |
+    (Site == "S11" & Transect == "T4") |
+    (Site == "S11" & Transect == "T5") |
+    (Site == "S11" & Transect == "T6") |
+    (Site == "S12" & Transect == "T4") |
+    (Site == "S12" & Transect == "T5") |
+    (Site == "S12" & Transect == "T6") |
+    (Site == "S14" & Transect == "T4") |
+    (Site == "S14" & Transect == "T5") |
+    (Site == "S14" & Transect == "T6") |
+    (Site == "S15" & Transect == "T4") |
+    (Site == "S15" & Transect == "T5") |
+    (Site == "S15" & Transect == "T6") |
+    (Site == "S18" & Transect == "T4") |
+    (Site == "S18" & Transect == "T5") |
+    (Site == "S18" & Transect == "T6") |
+    (is.na(Site) & Transect == "T2")
+  ))
+
+
+```
 5.2 Process downloaded benthic cover data and map to sites
 ```{r}
 # 1) Filter to backreef/lagoon habitat and summarise by site
