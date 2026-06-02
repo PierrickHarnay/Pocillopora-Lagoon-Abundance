@@ -13,7 +13,7 @@ This file have all the data concerning *Pocillopora sp.* relative abundance of t
 
 SPACE FOR MAP OF THE SITE.  
 
-***Transect:*** Each site has between 3 and 6 transects. When it's writting **T3** it mean **Transect 2**.  
+***Transect:*** Each site has between 3 and 6 transects. When it's writting **T3** it mean **Transect 3**.  
 
 ***ID:*** Project name identification.  
 
